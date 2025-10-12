@@ -16,7 +16,8 @@ import {
   ChefHat, 
   Gift,
   LogOut,
-  RefreshCw 
+  RefreshCw,
+  BookOpen
 } from 'lucide-react';
 
 interface User {
@@ -69,8 +70,8 @@ export default function DashboardPage() {
       console.error('Error fetching quote:', error);
       // Set a default quote if API fails
       setQuote({
-        text: "In all the world, there is no heart for me like yours. In all the world, there is no love for you like mine.",
-        author: "Maya Angelou"
+        text: "Indeed, with hardship comes ease.",
+        author: "Quran 94:6"
       });
     } finally {
       setIsLoadingQuote(false);
@@ -205,8 +206,8 @@ export default function DashboardPage() {
         {/* Quote of the Day */}
         <div className="mt-12 text-center">
           <div className="inline-block bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 max-w-2xl border border-love-lavender dark:border-gray-700 relative">
-            <div className="w-12 h-12 mx-auto mb-4 bg-gradient-to-br from-love-sky to-love-ocean rounded-full flex items-center justify-center">
-              <Heart className="text-white" size={24} fill="white" />
+            <div className="w-12 h-12 mx-auto mb-4 bg-gradient-to-br from-green-500 to-green-700 rounded-full flex items-center justify-center">
+              <BookOpen className="text-white" size={24} />
             </div>
             
             {quote ? (

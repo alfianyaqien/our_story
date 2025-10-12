@@ -6,13 +6,18 @@ import { ThemeProvider } from '@/components/ThemeProvider'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Our Story - Together Forever',
+  title: 'Our Story',
   description: 'A special place for our love story',
+  manifest: '/manifest.json',
   icons: {
     icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/icon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon.svg?v=2', type: 'image/svg+xml' },
+      { url: '/favicon.svg?v=2', sizes: 'any' },
     ],
+    apple: [
+      { url: '/favicon.svg?v=2', sizes: '180x180', type: 'image/svg+xml' },
+    ],
+    shortcut: '/favicon.svg?v=2',
   },
 }
 

@@ -90,22 +90,22 @@ export default function WishlistPage() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {items.map((item) => (
-              <div key={item.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 card-hover">
+              <div key={item.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 card-hover">
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
-                    <h3 className="text-xl font-bold text-gray-800 mb-1">{item.title}</h3>
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">{item.title}</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">by {item.userName}</p>
                   </div>
                   <div className="flex gap-1">
                     <button
                       onClick={() => setEditingItem(item)}
-                      className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                      className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition"
                     >
                       <Edit2 size={16} />
                     </button>
                     <button
                       onClick={() => handleDelete(item.id)}
-                      className="p-1 text-red-600 hover:bg-red-50 rounded"
+                      className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -113,7 +113,7 @@ export default function WishlistPage() {
                 </div>
 
                 {item.description && (
-                  <p className="text-gray-600 text-sm mb-3">{item.description}</p>
+                  <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">{item.description}</p>
                 )}
 
                 <div className="space-y-2">
@@ -131,7 +131,7 @@ export default function WishlistPage() {
                   )}
 
                   {item.price && (
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">💰 ${item.price.toFixed(2)}</p>
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">💰 Rp {Number(item.price).toLocaleString('id-ID')}</p>
                   )}
 
                   {item.link && (
@@ -139,18 +139,18 @@ export default function WishlistPage() {
                       href={item.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
+                      className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition"
                     >
                       <ExternalLink size={14} />
                       View Link
                     </a>
                   )}
 
-                  <div className="pt-3 border-t flex gap-2 text-xs">
+                  <div className="pt-3 border-t dark:border-gray-700 flex gap-2 text-xs">
                     {item.status !== 'wished' && (
                       <button
                         onClick={() => updateStatus(item, 'wished')}
-                        className="flex-1 py-1 px-2 bg-purple-50 text-purple-700 rounded hover:bg-purple-100"
+                        className="flex-1 py-1 px-2 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded hover:bg-purple-100 dark:hover:bg-purple-900/50 transition"
                       >
                         Wish
                       </button>
@@ -158,7 +158,7 @@ export default function WishlistPage() {
                     {item.status !== 'planned' && (
                       <button
                         onClick={() => updateStatus(item, 'planned')}
-                        className="flex-1 py-1 px-2 bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+                        className="flex-1 py-1 px-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition"
                       >
                         Plan
                       </button>
@@ -166,7 +166,7 @@ export default function WishlistPage() {
                     {item.status !== 'purchased' && (
                       <button
                         onClick={() => updateStatus(item, 'purchased')}
-                        className="flex-1 py-1 px-2 bg-green-50 text-green-700 rounded hover:bg-green-100"
+                        className="flex-1 py-1 px-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded hover:bg-green-100 dark:hover:bg-green-900/50 transition"
                       >
                         ✓ Purchased
                       </button>
@@ -216,64 +216,64 @@ function WishlistForm({ item, onSave, onCancel }: { item: WishlistItem | null; o
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">{item ? 'Edit' : 'New'} Wishlist Item</h2>
+    <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 max-w-2xl mx-auto border border-gray-100 dark:border-gray-700">
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">{item ? 'Edit' : 'New'} Wishlist Item</h2>
       
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Title *</label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition"
             placeholder="What do you wish for?"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none resize-none"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none resize-none transition"
             placeholder="Additional details..."
           />
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
             <input
               type="text"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition"
               placeholder="e.g., Books, Gadgets"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Price</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Price (Rp)</label>
             <input
               type="number"
-              step="0.01"
+              step="1000"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
-              placeholder="0.00"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition"
+              placeholder="0"
             />
           </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Priority</label>
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as any)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -281,11 +281,11 @@ function WishlistForm({ item, onSave, onCancel }: { item: WishlistItem | null; o
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as any)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition"
             >
               <option value="wished">Wished</option>
               <option value="planned">Planned</option>
@@ -295,12 +295,12 @@ function WishlistForm({ item, onSave, onCancel }: { item: WishlistItem | null; o
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Link</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Link</label>
           <input
             type="url"
             value={link}
             onChange={(e) => setLink(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition"
             placeholder="https://..."
           />
         </div>

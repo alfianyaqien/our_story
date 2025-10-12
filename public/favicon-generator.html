@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Favicon</title>
+</head>
+<body>
+    <h2>Favicon Generator</h2>
+    <p>Use this SVG to generate PNG and ICO files:</p>
+    <canvas id="canvas" width="512" height="512" style="border: 1px solid #ccc;"></canvas>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Create gradient
+        const gradient1 = ctx.createLinearGradient(0, 0, 512, 512);
+        gradient1.addColorStop(0, '#B8E6F7');
+        gradient1.addColorStop(0.5, '#87CEEB');
+        gradient1.addColorStop(1, '#6BB6D6');
+        
+        const gradient2 = ctx.createLinearGradient(0, 0, 512, 512);
+        gradient2.addColorStop(0, '#87CEEB');
+        gradient2.addColorStop(0.5, '#4A90E2');
+        gradient2.addColorStop(1, '#3A7BC8');
+        
+        const gradient3 = ctx.createLinearGradient(0, 0, 512, 512);
+        gradient3.addColorStop(0, '#4A90E2');
+        gradient3.addColorStop(0.5, '#2C5AA0');
+        gradient3.addColorStop(1, '#1E4D7B');
+        
+        // Background
+        ctx.fillStyle = gradient1;
+        ctx.fillRect(0, 0, 512, 512);
+        
+        // Add waves and heart
+        ctx.fillStyle = gradient2;
+        ctx.globalAlpha = 0.85;
+        ctx.beginPath();
+        ctx.arc(256, 256, 180, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = gradient3;
+        ctx.globalAlpha = 0.95;
+        ctx.beginPath();
+        ctx.arc(256, 256, 120, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Heart
+        ctx.fillStyle = 'white';
+        ctx.globalAlpha = 0.95;
+        ctx.beginPath();
+        ctx.moveTo(256, 220);
+        ctx.bezierCurveTo(256, 210, 246, 200, 236, 200);
+        ctx.bezierCurveTo(216, 200, 216, 220, 216, 220);
+        ctx.bezierCurveTo(216, 240, 256, 280, 256, 280);
+        ctx.bezierCurveTo(256, 280, 296, 240, 296, 220);
+        ctx.bezierCurveTo(296, 220, 296, 200, 276, 200);
+        ctx.bezierCurveTo(266, 200, 256, 210, 256, 220);
+        ctx.fill();
+    </script>
+</body>
+</html>

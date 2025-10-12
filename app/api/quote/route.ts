@@ -1,45 +1,52 @@
 import { NextResponse } from 'next/server';
 
-// Fallback quotes in case the API is down
+// Fallback Islamic quotes in case the API is down
 const fallbackQuotes = [
   {
-    text: "In all the world, there is no heart for me like yours. In all the world, there is no love for you like mine.",
-    author: "Maya Angelou"
+    text: "And He found you lost and guided [you].",
+    author: "Quran 93:7"
   },
   {
-    text: "Love is not about how many days, months, or years you have been together. Love is about how much you love each other every single day.",
-    author: "Unknown"
+    text: "Indeed, with hardship comes ease.",
+    author: "Quran 94:6"
   },
   {
-    text: "The best thing to hold onto in life is each other.",
-    author: "Audrey Hepburn"
+    text: "So remember Me; I will remember you.",
+    author: "Quran 2:152"
   },
   {
-    text: "I love you not only for what you are, but for what I am when I am with you.",
-    author: "Roy Croft"
+    text: "Verily, in the remembrance of Allah do hearts find rest.",
+    author: "Quran 13:28"
   },
   {
-    text: "You know you're in love when you can't fall asleep because reality is finally better than your dreams.",
-    author: "Dr. Seuss"
+    text: "And He is with you wherever you are.",
+    author: "Quran 57:4"
   },
   {
-    text: "Being deeply loved by someone gives you strength, while loving someone deeply gives you courage.",
-    author: "Lao Tzu"
+    text: "Allah does not burden a soul beyond that it can bear.",
+    author: "Quran 2:286"
   },
   {
-    text: "The greatest happiness of life is the conviction that we are loved; loved for ourselves, or rather, loved in spite of ourselves.",
-    author: "Victor Hugo"
+    text: "The best among you are those who have the best manners and character.",
+    author: "Prophet Muhammad (PBUH)"
   },
   {
-    text: "I would rather share one lifetime with you than face all the ages of this world alone.",
-    author: "J.R.R. Tolkien"
+    text: "Kindness is a mark of faith, and whoever is not kind has no faith.",
+    author: "Prophet Muhammad (PBUH)"
+  },
+  {
+    text: "Do not be people without minds of your own, saying that if others treat you well you will treat them well.",
+    author: "Prophet Muhammad (PBUH)"
+  },
+  {
+    text: "The strong person is not the one who can wrestle someone else down. The strong person is the one who can control himself when he is angry.",
+    author: "Prophet Muhammad (PBUH)"
   }
 ];
 
 export async function GET() {
   try {
-    // Try to fetch from ZenQuotes API (free, no key required)
-    const response = await fetch('https://zenquotes.io/api/random', {
+    const response = await fetch('https://api.hadith.gading.dev/quotes/random', {
       cache: 'no-store',
       headers: {
         'User-Agent': 'OurStoryApp/1.0'
@@ -49,22 +56,19 @@ export async function GET() {
     if (response.ok) {
       const data = await response.json();
       
-      // ZenQuotes returns an array with one quote
-      if (data && data.length > 0) {
+      if (data && data.indo) {
         return NextResponse.json({
           quote: {
-            text: data[0].q,
-            author: data[0].a
+            text: data.indo,
+            author: "Islamic Quote"
           }
         });
       }
     }
 
-    // If API fails, use fallback
     throw new Error('API failed');
 
   } catch (error) {
-    // Return a random fallback quote
     const randomQuote = fallbackQuotes[Math.floor(Math.random() * fallbackQuotes.length)];
     
     return NextResponse.json({

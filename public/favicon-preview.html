@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Favicon Icon Preview</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .preview {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 30px 0;
+        }
+        .preview-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .preview-item img {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+        }
+        .label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 500;
+        }
+        .note {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f9ff;
+            border-left: 4px solid #4A90E2;
+            text-align: left;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Favicon Preview - Our Story</h1>
+        
+        <div class="preview">
+            <div class="preview-item">
+                <img src="/favicon.svg" width="16" height="16" alt="16x16">
+                <span class="label">16×16 (Tab)</span>
+            </div>
+            <div class="preview-item">
+                <img src="/favicon.svg" width="32" height="32" alt="32x32">
+                <span class="label">32×32 (Bookmark)</span>
+            </div>
+            <div class="preview-item">
+                <img src="/favicon.svg" width="64" height="64" alt="64x64">
+                <span class="label">64×64 (Desktop)</span>
+            </div>
+            <div class="preview-item">
+                <img src="/favicon.svg" width="128" height="128" alt="128x128">
+                <span class="label">128×128 (Tile)</span>
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>✨ Your New Favicon Features:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Beautiful gradient flowing waves (blue tones)</li>
+                <li>Layered design with depth</li>
+                <li>Central heart symbol</li>
+                <li>Sparkle details and accents</li>
+                <li>Matches your logo design perfectly</li>
+            </ul>
+            <strong>🔄 To see changes:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>Hard refresh: <code>Ctrl+Shift+R</code> (Windows) or <code>Cmd+Shift+R</code> (Mac)</li>
+                <li>Clear browser cache</li>
+                <li>Open in incognito/private window</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

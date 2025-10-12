@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Our Story - Logo Exports</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #E6F2FF 0%, #B8C5E6 100%);
+      padding: 2rem;
+      margin: 0;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      background: linear-gradient(to right, #87CEEB, #4A90E2, #2C5AA0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-size: 2.5rem;
+      margin-bottom: 2rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      margin-bottom: 3rem;
+    }
+    .card {
+      background: white;
+      border-radius: 1rem;
+      padding: 2rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    .card h2 {
+      color: #2C5AA0;
+      margin-top: 0;
+      margin-bottom: 1rem;
+      font-size: 1.25rem;
+    }
+    .logo-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .light-bg {
+      background: #F9FAFB;
+    }
+    .dark-bg {
+      background: #1F2937;
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, #87CEEB 0%, #4A90E2 100%);
+    }
+    .info {
+      color: #6B7280;
+      font-size: 0.875rem;
+      margin: 0.5rem 0;
+    }
+    .download-btn {
+      background: linear-gradient(to right, #4A90E2, #2C5AA0);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      width: 100%;
+      margin-top: 1rem;
+    }
+    .download-btn:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Our Story - Logo Assets</h1>
+    
+    <div class="grid">
+      <!-- App Icon 512x512 -->
+      <div class="card">
+        <h2>App Icon - Large (512×512)</h2>
+        <div class="logo-container light-bg" id="icon-512"></div>
+        <p class="info">High-resolution app icon for PWA and app stores</p>
+        <button class="download-btn" onclick="downloadSVG('icon-512', 'app-icon-512.svg')">Download SVG</button>
+      </div>
+
+      <!-- App Icon 192x192 -->
+      <div class="card">
+        <h2>App Icon - Medium (192×192)</h2>
+        <div class="logo-container light-bg" id="icon-192"></div>
+        <p class="info">Standard app icon for PWA manifest</p>
+        <button class="download-btn" onclick="downloadSVG('icon-192', 'app-icon-192.svg')">Download SVG</button>
+      </div>
+
+      <!-- Favicon -->
+      <div class="card">
+        <h2>Favicon (32×32)</h2>
+        <div class="logo-container light-bg" id="favicon"></div>
+        <p class="info">Browser tab icon</p>
+        <button class="download-btn" onclick="downloadSVG('favicon', 'favicon.svg')">Download SVG</button>
+      </div>
+
+      <!-- Logo Light Background -->
+      <div class="card">
+        <h2>Logo - Light Background</h2>
+        <div class="logo-container light-bg" id="logo-light"></div>
+        <p class="info">Full logo for light backgrounds</p>
+        <button class="download-btn" onclick="downloadSVG('logo-light', 'logo-light-bg.svg')">Download SVG</button>
+      </div>
+
+      <!-- Logo Dark Background -->
+      <div class="card">
+        <h2>Logo - Dark Background</h2>
+        <div class="logo-container dark-bg" id="logo-dark"></div>
+        <p class="info">Full logo for dark backgrounds</p>
+        <button class="download-btn" onclick="downloadSVG('logo-dark', 'logo-dark-bg.svg')">Download SVG</button>
+      </div>
+
+      <!-- Social Media Square -->
+      <div class="card">
+        <h2>Social Media Profile (400×400)</h2>
+        <div class="logo-container gradient-bg" id="social-square"></div>
+        <p class="info">Instagram, Facebook, Twitter profile picture</p>
+        <button class="download-btn" onclick="downloadSVG('social-square', 'social-profile.svg')">Download SVG</button>
+      </div>
+
+      <!-- OG Image -->
+      <div class="card">
+        <h2>Open Graph Image (1200×630)</h2>
+        <div class="logo-container gradient-bg" id="og-image" style="min-height: 150px;"></div>
+        <p class="info">Social media share preview image</p>
+        <button class="download-btn" onclick="downloadSVG('og-image', 'og-image.svg')">Download SVG</button>
+      </div>
+
+      <!-- Horizontal Logo -->
+      <div class="card">
+        <h2>Horizontal Logo with Text</h2>
+        <div class="logo-container light-bg" id="logo-horizontal"></div>
+        <p class="info">Logo with text for headers</p>
+        <button class="download-btn" onclick="downloadSVG('logo-horizontal', 'logo-horizontal.svg')">Download SVG</button>
+      </div>
+
+      <!-- Email Signature -->
+      <div class="card">
+        <h2>Email Signature</h2>
+        <div class="logo-container light-bg" id="email-sig"></div>
+        <p class="info">Compact logo for email signatures</p>
+        <button class="download-btn" onclick="downloadSVG('email-sig', 'email-signature.svg')">Download SVG</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Logo SVG templates
+    const logos = {
+      'icon-512': `
+        <svg width="512" height="512" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad1-512" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#87CEEB" />
+              <stop offset="100%" style="stop-color:#4A90E2" />
+            </linearGradient>
+          </defs>
+          <rect width="200" height="200" rx="40" fill="url(#grad1-512)"/>
+          <path d="M100,70 L80,88 Q65,100 65,120 Q65,140 85,160 L100,175 L115,160 Q135,140 135,120 Q135,100 120,88 Z" fill="white" opacity="0.95"/>
+          <path d="M40,100 Q60,85 80,95 Q100,105 100,95 Q100,85 120,95 Q140,105 160,100" stroke="white" stroke-width="5" fill="none" opacity="0.5"/>
+        </svg>
+      `,
+      'icon-192': `
+        <svg width="192" height="192" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad1-192" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#87CEEB" />
+              <stop offset="100%" style="stop-color:#4A90E2" />
+            </linearGradient>
+          </defs>
+          <rect width="200" height="200" rx="40" fill="url(#grad1-192)"/>
+          <path d="M100,70 L80,88 Q65,100 65,120 Q65,140 85,160 L100,175 L115,160 Q135,140 135,120 Q135,100 120,88 Z" fill="white" opacity="0.95"/>
+          <path d="M40,100 Q60,85 80,95 Q100,105 100,95" stroke="white" stroke-width="5" fill="none" opacity="0.5"/>
+        </svg>
+      `,
+      'favicon': `
+        <svg width="32" height="32" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad1-fav" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#87CEEB" />
+              <stop offset="100%" style="stop-color:#4A90E2" />
+            </linearGradient>
+          </defs>
+          <circle cx="100" cy="100" r="95" fill="url(#grad1-fav)"/>
+          <path d="M100,75 L85,90 Q75,100 75,115 Q75,130 90,145 L100,155 L110,145 Q125,130 125,115 Q125,100 115,90 Z" fill="white" opacity="0.95"/>
+        </svg>
+      `,
+      'logo-light': `
+        <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="blueGrad1-light" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#B8E6F7" />
+              <stop offset="100%" style="stop-color:#6BB6D6" />
+            </linearGradient>
+            <linearGradient id="blueGrad2-light" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#87CEEB" />
+              <stop offset="100%" style="stop-color:#3A7BC8" />
+            </linearGradient>
+            <linearGradient id="blueGrad3-light" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#4A90E2" />
+              <stop offset="100%" style="stop-color:#1E4D7B" />
+            </linearGradient>
+          </defs>
+          <circle cx="100" cy="100" r="98" fill="url(#blueGrad1-light)" opacity="0.3"/>
+          <path d="M35,100 Q55,85 75,95 Q95,105 100,95 Q105,85 125,95 Q145,105 165,100 L165,200 L35,200 Z" fill="url(#blueGrad2-light)"/>
+          <path d="M45,102 Q65,87 85,97 Q100,107 100,97 Q100,87 115,97 Q130,107 155,102 L155,200 L45,200 Z" fill="url(#blueGrad3-light)"/>
+          <path d="M100,80 L85,95 Q80,100 80,110 Q80,120 90,130 L100,140 L110,130 Q120,120 120,110 Q120,100 115,95 Z" fill="white" opacity="0.95"/>
+        </svg>
+      `,
+      'logo-dark': `
+        <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="blueGrad1-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#87CEEB" />
+              <stop offset="100%" style="stop-color:#4A90E2" />
+            </linearGradient>
+            <linearGradient id="blueGrad2-dark" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#4A90E2" />
+              <stop offset="100%" style="stop-color:#2C5AA0" />
+            </linearGradient>
+          </defs>
+          <circle cx="100" cy="100" r="98" fill="url(#blueGrad1-dark)" opacity="0.4"/>
+          <path d="M35,100 Q55,85 75,95 Q95,105 100,95 Q105,85 125,95 Q145,105 165,100 L165,200 L35,200 Z" fill="url(#blueGrad2-dark)"/>
+          <path d="M100,80 L85,95 Q80,100 80,110 Q80,120 90,130 L100,140 L110,130 Q120,120 120,110 Q120,100 115,95 Z" fill="white" opacity="0.95"/>
+        </svg>
+      `,
+      'social-square': `
+        <svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad-social" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#87CEEB" />
+              <stop offset="50%" style="stop-color:#4A90E2" />
+              <stop offset="100%" style="stop-color:#2C5AA0" />
+            </linearGradient>
+          </defs>
+          <rect width="400" height="400" fill="url(#grad-social)"/>
+          <g transform="translate(100, 100)">
+            <path d="M100,80 L85,95 Q80,100 80,110 Q80,120 90,130 L100,140 L110,130 Q120,120 120,110 Q120,100 115,95 Z" fill="white" opacity="0.95"/>
+            <path d="M35,100 Q55,85 75,95 Q95,105 100,95 Q105,85 125,95 Q145,105 165,100" stroke="white" stroke-width="6" fill="none" opacity="0.5"/>
+          </g>
+          <text x="200" y="280" text-anchor="middle" fill="white" font-size="48" font-weight="bold" font-family="system-ui, sans-serif">Our Story</text>
+          <text x="200" y="310" text-anchor="middle" fill="white" font-size="20" opacity="0.9" font-family="system-ui, sans-serif" font-style="italic">Love, written together</text>
+        </svg>
+      `,
+      'og-image': `
+        <svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad-og" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#87CEEB" />
+              <stop offset="50%" style="stop-color:#4A90E2" />
+              <stop offset="100%" style="stop-color:#2C5AA0" />
+            </linearGradient>
+          </defs>
+          <rect width="1200" height="630" fill="url(#grad-og)"/>
+          <g transform="translate(400, 165)">
+            <path d="M100,80 L85,95 Q80,100 80,110 Q80,120 90,130 L100,140 L110,130 Q120,120 120,110 Q120,100 115,95 Z" fill="white" opacity="0.95" transform="scale(1.5)"/>
+            <path d="M35,100 Q55,85 75,95 Q95,105 100,95 Q105,85 125,95 Q145,105 165,100" stroke="white" stroke-width="8" fill="none" opacity="0.5" transform="scale(1.5)"/>
+          </g>
+          <text x="600" y="420" text-anchor="middle" fill="white" font-size="72" font-weight="bold" font-family="system-ui, sans-serif">Our Story</text>
+          <text x="600" y="480" text-anchor="middle" fill="white" font-size="32" opacity="0.9" font-family="system-ui, sans-serif" font-style="italic">Love, written together</text>
+        </svg>
+      `,
+      'logo-horizontal': `
+        <svg width="400" height="120" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad-h1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#87CEEB" />
+              <stop offset="100%" style="stop-color:#4A90E2" />
+            </linearGradient>
+            <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#87CEEB" />
+              <stop offset="50%" style="stop-color:#4A90E2" />
+              <stop offset="100%" style="stop-color:#2C5AA0" />
+            </linearGradient>
+          </defs>
+          <g transform="translate(10, 10)">
+            <circle cx="50" cy="50" r="48" fill="url(#grad-h1)"/>
+            <path d="M50,40 L42,47 Q38,50 38,56 Q38,62 44,68 L50,74 L56,68 Q62,62 62,56 Q62,50 58,47 Z" fill="white" opacity="0.95"/>
+          </g>
+          <text x="130" y="70" fill="url(#textGrad)" font-size="48" font-weight="bold" font-family="system-ui, sans-serif">Our Story</text>
+        </svg>
+      `,
+      'email-sig': `
+        <svg width="150" height="50" viewBox="0 0 150 50" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad-email" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#87CEEB" />
+              <stop offset="100%" style="stop-color:#4A90E2" />
+            </linearGradient>
+          </defs>
+          <circle cx="25" cy="25" r="20" fill="url(#grad-email)"/>
+          <path d="M25,20 L20,24 Q18,26 18,28 Q18,30 21,33 L25,37 L29,33 Q32,30 32,28 Q32,26 30,24 Z" fill="white" opacity="0.95"/>
+          <text x="52" y="32" fill="#2C5AA0" font-size="20" font-weight="bold" font-family="system-ui, sans-serif">Our Story</text>
+        </svg>
+      `
+    };
+
+    // Render all logos
+    Object.keys(logos).forEach(id => {
+      document.getElementById(id).innerHTML = logos[id];
+    });
+
+    // Download function
+    function downloadSVG(id, filename) {
+      const svgContent = logos[id];
+      const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>

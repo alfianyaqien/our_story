@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { ChefHat, Heart, MapPin, Edit2, Trash2 } from 'lucide-react';
+import Image from 'next/image';
+import { ChefHat, Heart, MapPin, Edit2, Trash2, Upload, X, ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 
 interface CulinaryPlan {
@@ -20,16 +21,41 @@ interface CulinaryPlan {
   createdAt: string;
 }
 
+interface CulinaryPhoto {
+  id: number;
+  culinaryId: number;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+  photoOrder: number;
+  uploadedAt: string;
+  createdAt: string;
+}
+
 export default function RecipesPage() {
   const [plans, setPlans] = useState<CulinaryPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<CulinaryPlan | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingPlan, setEditingPlan] = useState<CulinaryPlan | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [photos, setPhotos] = useState<CulinaryPhoto[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState<number | null>(null);
+  const [photosChanged, setPhotosChanged] = useState(false);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
+  const fileInputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
 
   useEffect(() => {
     fetchPlans();
   }, []);
+
+  useEffect(() => {
+    if (selectedPlan && selectedPlan.status === 'visited') {
+      fetchPhotos(selectedPlan.id);
+    } else {
+      setPhotos([]);
+    }
+  }, [selectedPlan]);
 
   const fetchPlans = async () => {
     const response = await fetch('/api/culinary');
@@ -37,6 +63,77 @@ export default function RecipesPage() {
       const data = await response.json();
       setPlans(data.recipes);
     }
+  };
+
+  const fetchPhotos = async (culinaryId: number) => {
+    const response = await fetch(`/api/culinary/photos?culinaryId=${culinaryId}`);
+    if (response.ok) {
+      const data = await response.json();
+      setPhotos(data.photos);
+    }
+  };
+
+  const handlePhotoUpload = async (photoOrder: number, file: File) => {
+    if (!selectedPlan) return;
+
+    setUploadingPhoto(photoOrder);
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('culinaryId', selectedPlan.id.toString());
+    formData.append('photoOrder', photoOrder.toString());
+
+    try {
+      const response = await fetch('/api/culinary/photos', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        await fetchPhotos(selectedPlan.id);
+        setPhotosChanged(true);
+      } else {
+        const error = await response.json();
+        alert(`Failed to upload photo: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload photo');
+    } finally {
+      setUploadingPhoto(null);
+      if (fileInputRefs[photoOrder - 1].current) {
+        fileInputRefs[photoOrder - 1].current!.value = '';
+      }
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: number) => {
+    if (!confirm('Are you sure you want to delete this photo?')) return;
+    if (!selectedPlan) return;
+
+    const response = await fetch(`/api/culinary/photos?id=${photoId}`, {
+      method: 'DELETE',
+    });
+
+    if (response.ok) {
+      await fetchPhotos(selectedPlan.id);
+      setPhotosChanged(true);
+    } else {
+      alert('Failed to delete photo');
+    }
+  };
+
+  const handleSavePhotos = () => {
+    setPhotosChanged(false);
+    alert('Photos saved successfully!');
+  };
+
+  const navigatePhoto = (direction: 'prev' | 'next') => {
+    if (selectedPhotoIndex === null) return;
+    const newIndex = direction === 'next' 
+      ? (selectedPhotoIndex + 1) % photos.length
+      : (selectedPhotoIndex - 1 + photos.length) % photos.length;
+    setSelectedPhotoIndex(newIndex);
   };
 
   const toggleFavorite = async (plan: CulinaryPlan) => {
@@ -214,6 +311,102 @@ export default function RecipesPage() {
                   </div>
                 </div>
               )}
+
+              {/* Photo Upload Section - Only for Visited Places */}
+              {selectedPlan.status === 'visited' && (
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-semibold flex items-center gap-2 dark:text-gray-100">
+                      📸 Our Moment Together
+                      <span className="text-sm font-normal text-gray-500 dark:text-gray-400">(Max 3 photos)</span>
+                    </h3>
+                    {photosChanged && (
+                      <button
+                        onClick={handleSavePhotos}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition shadow-md"
+                      >
+                        <Save size={16} />
+                        Save Photos
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[1, 2, 3].map((photoOrder) => {
+                      const existingPhoto = photos.find(p => p.photoOrder === photoOrder);
+                      
+                      return (
+                        <div key={photoOrder} className="relative">
+                          {existingPhoto ? (
+                            <div 
+                              className="relative aspect-square bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden group cursor-pointer"
+                              onClick={() => setSelectedPhotoIndex(photos.indexOf(existingPhoto))}
+                            >
+                              <Image
+                                src={existingPhoto.filePath}
+                                alt={`Photo ${photoOrder}`}
+                                fill
+                                className="object-cover transition-transform duration-300 group-hover:scale-110"
+                                sizes="(max-width: 768px) 100vw, 33vw"
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeletePhoto(existingPhoto.id);
+                                }}
+                                className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
+                                title="Delete photo"
+                              >
+                                <X size={16} />
+                              </button>
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <p className="text-white text-xs">
+                                  {(existingPhoto.fileSize / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="aspect-square bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                              <input
+                                ref={fileInputRefs[photoOrder - 1]}
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handlePhotoUpload(photoOrder, file);
+                                }}
+                                className="hidden"
+                              />
+                              <button
+                                onClick={() => fileInputRefs[photoOrder - 1].current?.click()}
+                                disabled={uploadingPhoto === photoOrder}
+                                className="flex flex-col items-center gap-2 p-4 w-full h-full"
+                              >
+                                {uploadingPhoto === photoOrder ? (
+                                  <>
+                                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Uploading...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="text-gray-400 dark:text-gray-500" size={32} />
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Photo {photoOrder}</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-500">Click to upload</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    ℹ️ Upload photos from your visit. Max 10MB per photo. Supported: JPEG, PNG, GIF, WebP
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -275,6 +468,64 @@ export default function RecipesPage() {
             )}
           </div>
         )}
+
+        {/* Photo Lightbox/Viewer */}
+        {selectedPhotoIndex !== null && photos[selectedPhotoIndex] && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center p-4"
+            onClick={() => setSelectedPhotoIndex(null)}
+          >
+            <button
+              onClick={(e) => { e.stopPropagation(); setSelectedPhotoIndex(null); }}
+              className="absolute top-4 right-4 p-2 bg-white dark:bg-gray-800 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition z-10"
+            >
+              <X size={24} className="text-gray-700 dark:text-gray-300" />
+            </button>
+
+            {/* Navigation Arrows */}
+            {photos.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigatePhoto('prev'); }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white dark:bg-gray-800 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition z-10"
+                >
+                  <ChevronLeft size={24} className="text-gray-700 dark:text-gray-300" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigatePhoto('next'); }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white dark:bg-gray-800 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition z-10"
+                >
+                  <ChevronRight size={24} className="text-gray-700 dark:text-gray-300" />
+                </button>
+              </>
+            )}
+
+            {/* Photo */}
+            <div className="max-w-5xl max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
+              <div className="relative w-full h-full">
+                <Image
+                  src={photos[selectedPhotoIndex].filePath}
+                  alt={`Photo ${photos[selectedPhotoIndex].photoOrder}`}
+                  width={1200}
+                  height={800}
+                  className="object-contain max-h-[85vh] w-auto h-auto mx-auto rounded-lg"
+                />
+              </div>
+              
+              {/* Photo Info */}
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-lg">
+                <div className="text-white text-center">
+                  <p className="text-sm">
+                    Photo {selectedPhotoIndex + 1} of {photos.length}
+                  </p>
+                  <p className="text-xs text-gray-300 mt-1">
+                    {(photos[selectedPhotoIndex].fileSize / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -290,11 +541,31 @@ function CulinaryForm({ plan, onSave, onCancel }: { plan?: CulinaryPlan | null; 
   const [status, setStatus] = useState<'wishlist' | 'planned' | 'visited'>(plan?.status || 'wishlist');
   const [rating, setRating] = useState(plan?.rating?.toString() || '');
   const [visitDate, setVisitDate] = useState(plan?.visitDate || '');
+  const [uploadedPhotos, setUploadedPhotos] = useState<File[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState<number | null>(null);
+  const fileInputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+
+  const handlePhotoSelect = (photoOrder: number, file: File | null) => {
+    if (!file) return;
+    
+    const newPhotos = [...uploadedPhotos];
+    newPhotos[photoOrder - 1] = file;
+    setUploadedPhotos(newPhotos);
+  };
+
+  const handleRemovePhoto = (photoOrder: number) => {
+    const newPhotos = [...uploadedPhotos];
+    delete newPhotos[photoOrder - 1];
+    setUploadedPhotos(newPhotos);
+    if (fileInputRefs[photoOrder - 1].current) {
+      fileInputRefs[photoOrder - 1].current!.value = '';
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    await fetch('/api/culinary', {
+    const response = await fetch('/api/culinary', {
       method: plan ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -312,7 +583,47 @@ function CulinaryForm({ plan, onSave, onCancel }: { plan?: CulinaryPlan | null; 
       }),
     });
 
-    onSave();
+    if (response.ok) {
+      const data = await response.json();
+      const culinaryId = data.recipeId || plan?.id;
+
+      // Upload photos if status is visited and photos are selected
+      if (status === 'visited' && culinaryId) {
+        const photosToUpload = uploadedPhotos.filter(file => file !== undefined && file !== null);
+        
+        if (photosToUpload.length > 0) {
+          for (let i = 0; i < uploadedPhotos.length; i++) {
+            const file = uploadedPhotos[i];
+            if (!file) continue;
+
+            setUploadingPhoto(i + 1);
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('culinaryId', culinaryId.toString());
+            formData.append('photoOrder', (i + 1).toString());
+
+            try {
+              const uploadResponse = await fetch('/api/culinary/photos', {
+                method: 'POST',
+                body: formData,
+              });
+
+              if (!uploadResponse.ok) {
+                const error = await uploadResponse.json();
+                console.error('Error uploading photo:', error);
+                alert(`Failed to upload photo ${i + 1}: ${error.error}`);
+              }
+            } catch (error) {
+              console.error('Error uploading photo:', error);
+              alert(`Failed to upload photo ${i + 1}`);
+            }
+          }
+        }
+        setUploadingPhoto(null);
+      }
+
+      onSave();
+    }
   };
 
   return (
@@ -446,18 +757,91 @@ function CulinaryForm({ plan, onSave, onCancel }: { plan?: CulinaryPlan | null; 
           />
         </div>
 
+        {/* Photo Upload Section - Only for Visited Places */}
+        {status === 'visited' && (
+          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 dark:text-gray-100">
+              📸 Upload Photos
+              <span className="text-sm font-normal text-gray-500 dark:text-gray-400">(Optional, Max 3 photos)</span>
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[1, 2, 3].map((photoOrder) => {
+                const selectedFile = uploadedPhotos[photoOrder - 1];
+                
+                return (
+                  <div key={photoOrder} className="relative">
+                    {selectedFile ? (
+                      <div className="relative aspect-square bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden group">
+                        <Image
+                          src={URL.createObjectURL(selectedFile)}
+                          alt={`Photo ${photoOrder}`}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePhoto(photoOrder)}
+                          className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                          title="Remove photo"
+                        >
+                          <X size={16} />
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <p className="text-white text-xs">
+                            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="aspect-square bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <input
+                          ref={fileInputRefs[photoOrder - 1]}
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handlePhotoSelect(photoOrder, file);
+                          }}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRefs[photoOrder - 1].current?.click()}
+                          className="flex flex-col items-center gap-2 p-4 w-full h-full"
+                        >
+                          <Upload className="text-gray-400 dark:text-gray-500" size={32} />
+                          <span className="text-sm text-gray-600 dark:text-gray-400">Photo {photoOrder}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-500">Click to select</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            <p className="mt-3 text-xs text-gray-600 dark:text-gray-400">
+              ℹ️ You can upload photos now or add them later after creating the place.
+            </p>
+          </div>
+        )}
+
         {/* Buttons */}
         <div className="flex gap-3 pt-4">
           <button
             type="submit"
-            className="flex-1 bg-teal-500 text-white font-semibold py-3 rounded-lg hover:bg-teal-600 transition shadow-md"
+            disabled={uploadingPhoto !== null}
+            className="flex-1 bg-teal-500 text-white font-semibold py-3 rounded-lg hover:bg-teal-600 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Culinary Plan
+            {uploadingPhoto !== null ? `Uploading photo ${uploadingPhoto}...` : 'Save Culinary Plan'}
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+            disabled={uploadingPhoto !== null}
+            className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>

@@ -585,27 +585,38 @@ function CulinaryForm({ plan, onSave, onCancel }: { plan?: CulinaryPlan | null; 
 
     if (response.ok) {
       const data = await response.json();
-      const culinaryId = data.culinaryPlan?.id || plan?.id;
+      const culinaryId = data.recipeId || plan?.id;
 
       // Upload photos if status is visited and photos are selected
-      if (status === 'visited' && culinaryId && uploadedPhotos.length > 0) {
-        for (let i = 0; i < uploadedPhotos.length; i++) {
-          const file = uploadedPhotos[i];
-          if (!file) continue;
+      if (status === 'visited' && culinaryId) {
+        const photosToUpload = uploadedPhotos.filter(file => file !== undefined && file !== null);
+        
+        if (photosToUpload.length > 0) {
+          for (let i = 0; i < uploadedPhotos.length; i++) {
+            const file = uploadedPhotos[i];
+            if (!file) continue;
 
-          setUploadingPhoto(i + 1);
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('culinaryId', culinaryId.toString());
-          formData.append('photoOrder', (i + 1).toString());
+            setUploadingPhoto(i + 1);
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('culinaryId', culinaryId.toString());
+            formData.append('photoOrder', (i + 1).toString());
 
-          try {
-            await fetch('/api/culinary/photos', {
-              method: 'POST',
-              body: formData,
-            });
-          } catch (error) {
-            console.error('Error uploading photo:', error);
+            try {
+              const uploadResponse = await fetch('/api/culinary/photos', {
+                method: 'POST',
+                body: formData,
+              });
+
+              if (!uploadResponse.ok) {
+                const error = await uploadResponse.json();
+                console.error('Error uploading photo:', error);
+                alert(`Failed to upload photo ${i + 1}: ${error.error}`);
+              }
+            } catch (error) {
+              console.error('Error uploading photo:', error);
+              alert(`Failed to upload photo ${i + 1}`);
+            }
           }
         }
         setUploadingPhoto(null);

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { ChefHat, Heart, MapPin, Edit2, Trash2 } from 'lucide-react';
+import Image from 'next/image';
+import { ChefHat, Heart, MapPin, Edit2, Trash2, Upload, X } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 
 interface CulinaryPlan {
@@ -20,22 +21,101 @@ interface CulinaryPlan {
   createdAt: string;
 }
 
+interface CulinaryPhoto {
+  id: number;
+  culinaryId: number;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+  photoOrder: number;
+  uploadedAt: string;
+  createdAt: string;
+}
+
 export default function RecipesPage() {
   const [plans, setPlans] = useState<CulinaryPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<CulinaryPlan | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingPlan, setEditingPlan] = useState<CulinaryPlan | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [photos, setPhotos] = useState<CulinaryPhoto[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState<number | null>(null);
+  const fileInputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
 
   useEffect(() => {
     fetchPlans();
   }, []);
+
+  useEffect(() => {
+    if (selectedPlan && selectedPlan.status === 'visited') {
+      fetchPhotos(selectedPlan.id);
+    } else {
+      setPhotos([]);
+    }
+  }, [selectedPlan]);
 
   const fetchPlans = async () => {
     const response = await fetch('/api/culinary');
     if (response.ok) {
       const data = await response.json();
       setPlans(data.recipes);
+    }
+  };
+
+  const fetchPhotos = async (culinaryId: number) => {
+    const response = await fetch(`/api/culinary/photos?culinaryId=${culinaryId}`);
+    if (response.ok) {
+      const data = await response.json();
+      setPhotos(data.photos);
+    }
+  };
+
+  const handlePhotoUpload = async (photoOrder: number, file: File) => {
+    if (!selectedPlan) return;
+
+    setUploadingPhoto(photoOrder);
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('culinaryId', selectedPlan.id.toString());
+    formData.append('photoOrder', photoOrder.toString());
+
+    try {
+      const response = await fetch('/api/culinary/photos', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        await fetchPhotos(selectedPlan.id);
+      } else {
+        const error = await response.json();
+        alert(`Failed to upload photo: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload photo');
+    } finally {
+      setUploadingPhoto(null);
+      if (fileInputRefs[photoOrder - 1].current) {
+        fileInputRefs[photoOrder - 1].current!.value = '';
+      }
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: number) => {
+    if (!confirm('Are you sure you want to delete this photo?')) return;
+    if (!selectedPlan) return;
+
+    const response = await fetch(`/api/culinary/photos?id=${photoId}`, {
+      method: 'DELETE',
+    });
+
+    if (response.ok) {
+      await fetchPhotos(selectedPlan.id);
+    } else {
+      alert('Failed to delete photo');
     }
   };
 
@@ -212,6 +292,85 @@ export default function RecipesPage() {
                   <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 whitespace-pre-wrap border border-gray-200 dark:border-gray-600 dark:text-gray-300">
                     {selectedPlan.notes}
                   </div>
+                </div>
+              )}
+
+              {/* Photo Upload Section - Only for Visited Places */}
+              {selectedPlan.status === 'visited' && (
+                <div>
+                  <h3 className="text-xl font-semibold mb-4 flex items-center gap-2 dark:text-gray-100">
+                    📸 Our Moment Together
+                    <span className="text-sm font-normal text-gray-500 dark:text-gray-400">(Max 3 photos)</span>
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[1, 2, 3].map((photoOrder) => {
+                      const existingPhoto = photos.find(p => p.photoOrder === photoOrder);
+                      
+                      return (
+                        <div key={photoOrder} className="relative">
+                          {existingPhoto ? (
+                            <div className="relative aspect-square bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden group">
+                              <Image
+                                src={existingPhoto.filePath}
+                                alt={`Photo ${photoOrder}`}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 768px) 100vw, 33vw"
+                              />
+                              <button
+                                onClick={() => handleDeletePhoto(existingPhoto.id)}
+                                className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                title="Delete photo"
+                              >
+                                <X size={16} />
+                              </button>
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <p className="text-white text-xs">
+                                  {(existingPhoto.fileSize / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="aspect-square bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                              <input
+                                ref={fileInputRefs[photoOrder - 1]}
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handlePhotoUpload(photoOrder, file);
+                                }}
+                                className="hidden"
+                              />
+                              <button
+                                onClick={() => fileInputRefs[photoOrder - 1].current?.click()}
+                                disabled={uploadingPhoto === photoOrder}
+                                className="flex flex-col items-center gap-2 p-4 w-full h-full"
+                              >
+                                {uploadingPhoto === photoOrder ? (
+                                  <>
+                                    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Uploading...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="text-gray-400 dark:text-gray-500" size={32} />
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Photo {photoOrder}</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-500">Click to upload</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    ℹ️ Upload photos from your visit. Max 10MB per photo. Supported: JPEG, PNG, GIF, WebP
+                  </p>
                 </div>
               )}
             </div>

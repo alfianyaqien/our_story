@@ -69,6 +69,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
+    // Parse session to get user ID
+    const userId = parseInt(sessionCookie.value.split(':')[0]);
+
     const formData = await request.formData();
     const culinaryId = formData.get('culinaryId') as string;
     const photoOrder = parseInt(formData.get('photoOrder') as string) || 1;
@@ -99,9 +102,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check if culinary plan has status 'visited'
+    // Check if culinary plan has status 'visited' and get place name
     const [culinaryRows] = await pool.execute<RowDataPacket[]>(
-      'SELECT status FROM recipes WHERE id = ?',
+      'SELECT status, place_name FROM recipes WHERE id = ?',
       [culinaryId]
     );
 
@@ -114,6 +117,8 @@ export async function POST(request: NextRequest) {
         error: 'Can only upload photos for visited places' 
       }, { status: 400 });
     }
+
+    const placeName = culinaryRows[0].place_name;
 
     // Check existing photo count
     const [countRows] = await pool.execute<RowDataPacket[]>(
@@ -158,14 +163,20 @@ export async function POST(request: NextRequest) {
       if (fs.existsSync(oldFilePath)) {
         fs.unlinkSync(oldFilePath);
       }
-      // Delete from database
+      // Delete from culinary_photos database
       await pool.execute(
         'DELETE FROM culinary_photos WHERE culinary_id = ? AND photo_order = ?',
         [culinaryId, photoOrder]
       );
+      
+      // Delete from photos (gallery) database if exists
+      await pool.execute(
+        'DELETE FROM photos WHERE file_name = ?',
+        [existingPhotos[0].file_name]
+      );
     }
 
-    // Save to database
+    // Save to culinary_photos table
     const [result] = await pool.execute<ResultSetHeader>(
       `INSERT INTO culinary_photos (culinary_id, file_name, file_path, file_size, mime_type, photo_order)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -176,6 +187,24 @@ export async function POST(request: NextRequest) {
         file.size,
         file.type,
         photoOrder
+      ]
+    );
+
+    // Also save to photos (gallery) table with 'culinary' album
+    await pool.execute(
+      `INSERT INTO photos (user_id, title, description, file_name, file_path, file_size, mime_type, width, height, album)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        userId,
+        `${placeName} - Photo ${photoOrder}`,
+        `Photo from culinary visit to ${placeName}`,
+        fileName,
+        `/uploads/culinary/${fileName}`,
+        file.size,
+        file.type,
+        null,
+        null,
+        'culinary'
       ]
     );
 
@@ -237,10 +266,16 @@ export async function DELETE(request: NextRequest) {
       fs.unlinkSync(filePath);
     }
 
-    // Delete from database
+    // Delete from culinary_photos database
     await pool.execute(
       'DELETE FROM culinary_photos WHERE id = ?',
       [photoId]
+    );
+
+    // Also delete from photos (gallery) database
+    await pool.execute(
+      'DELETE FROM photos WHERE file_name = ?',
+      [photo.file_name]
     );
 
     return NextResponse.json({ 

@@ -195,6 +195,28 @@ export default function GalleryPage() {
     return Array.from(albums);
   };
 
+  const getAlbumIcon = (album: string) => {
+    const icons: { [key: string]: string } = {
+      'general': '📷',
+      'culinary': '🍽️',
+      'travel': '✈️',
+      'memories': '💝',
+      'special': '⭐',
+    };
+    return icons[album] || '📸';
+  };
+
+  const getAlbumLabel = (album: string) => {
+    const labels: { [key: string]: string } = {
+      'general': 'General',
+      'culinary': 'Culinary Moments',
+      'travel': 'Travel',
+      'memories': 'Memories',
+      'special': 'Special Events',
+    };
+    return labels[album] || album.charAt(0).toUpperCase() + album.slice(1);
+  };
+
   const navigatePhoto = (direction: 'prev' | 'next') => {
     if (!selectedPhoto) return;
     const currentIndex = photos.findIndex(p => p.id === selectedPhoto.id);
@@ -223,19 +245,19 @@ export default function GalleryPage() {
                   : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
             >
-              All Photos
+              📸 All Photos
             </button>
             {getUniqueAlbums().map(album => (
               <button
                 key={album}
                 onClick={() => setFilterAlbum(album)}
-                className={`px-4 py-2 rounded-lg font-medium capitalize transition ${
+                className={`px-4 py-2 rounded-lg font-medium transition ${
                   filterAlbum === album
                     ? 'bg-blue-500 text-white shadow-md'
                     : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
-                {album}
+                {getAlbumIcon(album)} {getAlbumLabel(album)}
               </button>
             ))}
           </div>
@@ -307,6 +329,13 @@ export default function GalleryPage() {
                   className="object-cover transition-transform duration-300 group-hover:scale-110"
                   sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 20vw"
                 />
+                {/* Album Badge */}
+                <div className="absolute top-2 left-2 z-10">
+                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-xs rounded-full flex items-center gap-1">
+                    {getAlbumIcon(photo.album)}
+                    <span className="hidden sm:inline">{getAlbumLabel(photo.album)}</span>
+                  </span>
+                </div>
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
                   <ImageIcon className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={32} />
                 </div>

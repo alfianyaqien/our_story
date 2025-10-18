@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
-import { Camera, Upload, X, Trash2, Image as ImageIcon, ChevronLeft, ChevronRight, Edit2, Save, FolderOpen } from 'lucide-react';
+import { Camera, Upload, X, Trash2, Image as ImageIcon, ChevronLeft, ChevronRight, Edit2, Save, FolderOpen, Play, Pause } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import AlbumManager from '@/components/AlbumManager';
 
@@ -51,7 +51,10 @@ export default function GalleryPage() {
     description: '', 
     albumId: null as number | null 
   });
+  const [isSlideshow, setIsSlideshow] = useState(false);
+  const [slideshowSpeed, setSlideshowSpeed] = useState(3000); // 3 seconds default
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const slideshowIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchPhotos();
@@ -271,6 +274,47 @@ export default function GalleryPage() {
     setSelectedPhoto(photos[newIndex]);
   };
 
+  const startSlideshow = () => {
+    if (photos.length === 0) return;
+    
+    // Start from first photo if none selected, or continue from current
+    if (!selectedPhoto) {
+      setSelectedPhoto(photos[0]);
+    }
+    
+    setIsSlideshow(true);
+  };
+
+  const stopSlideshow = () => {
+    setIsSlideshow(false);
+    if (slideshowIntervalRef.current) {
+      clearInterval(slideshowIntervalRef.current);
+      slideshowIntervalRef.current = null;
+    }
+  };
+
+  // Slideshow effect
+  useEffect(() => {
+    if (isSlideshow && selectedPhoto && photos.length > 1) {
+      slideshowIntervalRef.current = setInterval(() => {
+        navigatePhoto('next');
+      }, slideshowSpeed);
+
+      return () => {
+        if (slideshowIntervalRef.current) {
+          clearInterval(slideshowIntervalRef.current);
+        }
+      };
+    }
+  }, [isSlideshow, selectedPhoto, photos, slideshowSpeed]);
+
+  // Stop slideshow when modal closes
+  useEffect(() => {
+    if (!selectedPhoto) {
+      stopSlideshow();
+    }
+  }, [selectedPhoto]);
+
   return (
     <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-love-ice via-white to-love-lavender dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="max-w-7xl mx-auto">
@@ -314,14 +358,25 @@ export default function GalleryPage() {
             </button>
           </div>
 
-          {/* Upload Button */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition shadow-md"
-          >
-            <Upload size={20} />
-            Upload Photos
-          </button>
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={startSlideshow}
+              disabled={photos.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Start slideshow"
+            >
+              <Play size={20} />
+              Slideshow
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition shadow-md"
+            >
+              <Upload size={20} />
+              Upload Photos
+            </button>
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -414,6 +469,42 @@ export default function GalleryPage() {
               <X size={24} className="text-gray-700 dark:text-gray-300" />
             </button>
 
+            {/* Slideshow Controls */}
+            {photos.length > 1 && (
+              <div className="absolute top-20 right-4 flex flex-col gap-2 z-10">
+                {/* Speed Selector */}
+                <select
+                  value={slideshowSpeed}
+                  onChange={(e) => { e.stopPropagation(); setSlideshowSpeed(Number(e.target.value)); }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+                >
+                  <option value="2000">Fast (2s)</option>
+                  <option value="3000">Normal (3s)</option>
+                  <option value="5000">Slow (5s)</option>
+                </select>
+                
+                {/* Play/Pause Button */}
+                {isSlideshow ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); stopSlideshow(); }}
+                    className="px-4 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
+                  >
+                    <Pause size={18} className="text-gray-700 dark:text-gray-300" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">Pause</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); startSlideshow(); }}
+                    className="px-4 py-2 bg-purple-600 rounded-lg shadow-lg hover:bg-purple-700 transition flex items-center gap-2"
+                  >
+                    <Play size={18} className="text-white" />
+                    <span className="text-sm text-white">Play</span>
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Navigation Arrows */}
             {photos.length > 1 && (
               <>
@@ -429,6 +520,13 @@ export default function GalleryPage() {
                 >
                   <ChevronRight size={24} className="text-gray-700 dark:text-gray-300" />
                 </button>
+                
+                {/* Slideshow Progress Indicator */}
+                <div className="absolute top-4 left-4 px-3 py-2 bg-black bg-opacity-60 rounded-lg z-10">
+                  <span className="text-white text-sm font-medium">
+                    {photos.findIndex(p => p.id === selectedPhoto.id) + 1} / {photos.length}
+                  </span>
+                </div>
               </>
             )}
 

@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File;
     const title = formData.get('title') as string || '';
     const description = formData.get('description') as string || '';
-    const album = formData.get('album') as string || 'general';
+    const albumId = formData.get('albumId') as string;
 
     if (!file) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -67,9 +67,24 @@ export async function POST(request: NextRequest) {
     const width = null;
     const height = null;
 
+    // Get or use default album (General)
+    let finalAlbumId = albumId ? parseInt(albumId) : null;
+    
+    if (!finalAlbumId) {
+      // Get the General album ID
+      const [generalAlbum] = await pool.execute<any[]>(
+        'SELECT id FROM albums WHERE name = ? LIMIT 1',
+        ['General']
+      );
+      
+      if (generalAlbum.length > 0) {
+        finalAlbumId = generalAlbum[0].id;
+      }
+    }
+
     // Store metadata in database
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO photos (user_id, title, description, file_name, file_path, file_size, mime_type, width, height, album)
+      `INSERT INTO photos (user_id, title, description, file_name, file_path, file_size, mime_type, width, height, album_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
@@ -81,9 +96,17 @@ export async function POST(request: NextRequest) {
         file.type,
         width,
         height,
-        album
+        finalAlbumId
       ]
     );
+
+    // Update album photo count
+    if (finalAlbumId) {
+      await pool.execute(
+        'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = ?) WHERE id = ?',
+        [finalAlbumId, finalAlbumId]
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -94,7 +117,7 @@ export async function POST(request: NextRequest) {
         filePath: `/uploads/photos/${fileName}`,
         title,
         description,
-        album,
+        albumId: finalAlbumId,
         fileSize: file.size,
         mimeType: file.type,
         width,

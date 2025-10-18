@@ -18,6 +18,7 @@
     "db:migrate": "npx tsx database/migrate.ts"
   },
   "dependencies": {
+    "@types/nodemailer": "^7.0.2",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^9.6.0",
     "crypto-js": "^4.2.0",
@@ -26,6 +27,7 @@
     "lucide-react": "^0.292.0",
     "mysql2": "^3.15.2",
     "next": "^14.0.0",
+    "nodemailer": "^7.0.9",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

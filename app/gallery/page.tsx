@@ -46,7 +46,11 @@ export default function GalleryPage() {
   const [showStoryModal, setShowStoryModal] = useState(false);
   const [showAlbumManager, setShowAlbumManager] = useState(false);
   const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
-  const [storyForm, setStoryForm] = useState({ title: '', description: '' });
+  const [storyForm, setStoryForm] = useState({ 
+    title: '', 
+    description: '', 
+    albumId: null as number | null 
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -134,7 +138,8 @@ export default function GalleryPage() {
       setEditingPhoto(newlyUploadedPhotos[0]);
       setStoryForm({
         title: newlyUploadedPhotos[0].title || '',
-        description: newlyUploadedPhotos[0].description || ''
+        description: newlyUploadedPhotos[0].description || '',
+        albumId: newlyUploadedPhotos[0].albumId
       });
       setShowStoryModal(true);
     }
@@ -170,7 +175,7 @@ export default function GalleryPage() {
           id: editingPhoto.id,
           title: storyForm.title || null,
           description: storyForm.description || null,
-          albumId: editingPhoto.albumId,
+          albumId: storyForm.albumId,
         }),
       });
 
@@ -182,7 +187,8 @@ export default function GalleryPage() {
           setEditingPhoto(nextPhoto);
           setStoryForm({
             title: nextPhoto.title || '',
-            description: nextPhoto.description || ''
+            description: nextPhoto.description || '',
+            albumId: nextPhoto.albumId
           });
         } else {
           setShowStoryModal(false);
@@ -206,7 +212,8 @@ export default function GalleryPage() {
       setEditingPhoto(nextPhoto);
       setStoryForm({
         title: nextPhoto.title || '',
-        description: nextPhoto.description || ''
+        description: nextPhoto.description || '',
+        albumId: nextPhoto.albumId
       });
     } else {
       setShowStoryModal(false);
@@ -220,7 +227,8 @@ export default function GalleryPage() {
     setEditingPhoto(selectedPhoto);
     setStoryForm({
       title: selectedPhoto.title || '',
-      description: selectedPhoto.description || ''
+      description: selectedPhoto.description || '',
+      albumId: selectedPhoto.albumId
     });
     setUploadedPhotos([selectedPhoto]);
     setSelectedPhoto(null);
@@ -230,6 +238,28 @@ export default function GalleryPage() {
   const getUniqueAlbums = () => {
     const albums = new Set(photos.map(p => p.album));
     return Array.from(albums);
+  };
+
+  const getAlbumIcon = (album: string) => {
+    const icons: { [key: string]: string } = {
+      'general': '📷',
+      'culinary': '🍽️',
+      'travel': '✈️',
+      'memories': '💝',
+      'special': '⭐',
+    };
+    return icons[album] || '📸';
+  };
+
+  const getAlbumLabel = (album: string) => {
+    const labels: { [key: string]: string } = {
+      'general': 'General',
+      'culinary': 'Culinary Moments',
+      'travel': 'Travel',
+      'memories': 'Memories',
+      'special': 'Special Events',
+    };
+    return labels[album] || album.charAt(0).toUpperCase() + album.slice(1);
   };
 
   const navigatePhoto = (direction: 'prev' | 'next') => {
@@ -260,7 +290,7 @@ export default function GalleryPage() {
                   : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
             >
-              All Photos
+              📸 All Photos
             </button>
             {albums.map(album => (
               <button
@@ -272,7 +302,7 @@ export default function GalleryPage() {
                     : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
-                {album.name} ({album.photoCount})
+                {getAlbumIcon(album.name.toLowerCase())} {album.name} ({album.photoCount})
               </button>
             ))}
             <button
@@ -351,6 +381,13 @@ export default function GalleryPage() {
                   className="object-cover transition-transform duration-300 group-hover:scale-110"
                   sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 20vw"
                 />
+                {/* Album Badge */}
+                <div className="absolute top-2 left-2 z-10">
+                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-xs rounded-full flex items-center gap-1">
+                    {getAlbumIcon(photo.album)}
+                    <span className="hidden sm:inline">{getAlbumLabel(photo.album)}</span>
+                  </span>
+                </div>
                 <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
                   <ImageIcon className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={32} />
                 </div>
@@ -433,7 +470,7 @@ export default function GalleryPage() {
                       className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
                     >
                       <Edit2 size={16} />
-                      Edit Story
+                      Edit Photo
                     </button>
                     <button
                       onClick={() => handleDelete(selectedPhoto.id)}
@@ -456,7 +493,7 @@ export default function GalleryPage() {
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                    Add Story to Photo
+                    {uploadedPhotos.length > 1 ? 'Add Story to Photos' : 'Edit Photo'}
                   </h2>
                   <button
                     onClick={() => {
@@ -516,6 +553,24 @@ export default function GalleryPage() {
                       rows={4}
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Album
+                    </label>
+                    <select
+                      value={storyForm.albumId || ''}
+                      onChange={(e) => setStoryForm({ ...storyForm, albumId: e.target.value ? parseInt(e.target.value) : null })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    >
+                      <option value="">Select an album...</option>
+                      {albums.map(album => (
+                        <option key={album.id} value={album.id}>
+                          {getAlbumIcon(album.name.toLowerCase())} {album.name} ({album.photoCount} photos)
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 

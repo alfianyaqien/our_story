@@ -3,6 +3,9 @@ export interface User {
   username: string;
   displayName: string;
   password: string;
+  email?: string;
+  emailVerified?: boolean;
+  accountStatus?: 'active' | 'inactive' | 'suspended';
 }
 
 export interface LoveLetter {

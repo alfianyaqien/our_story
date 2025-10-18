@@ -67,7 +67,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Username
+                Username or Email
               </label>
               <input
                 id="username"
@@ -75,7 +75,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-love-ocean dark:focus:ring-love-sky focus:border-transparent outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                placeholder="Enter your username"
+                placeholder="Enter your username or email"
                 required
               />
             </div>
@@ -104,8 +104,22 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-            <p>Demo: partner1/password1 or partner2/password2</p>
+          <div className="mt-6 text-center space-y-3">
+            <a
+              href="/auth/forgot-password"
+              className="text-sm text-love-ocean dark:text-love-sky hover:underline block"
+            >
+              Forgot password?
+            </a>
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Don't have an account?{' '}
+              <a
+                href="/auth/signup"
+                className="text-love-ocean dark:text-love-sky font-semibold hover:underline"
+              >
+                Sign up
+              </a>
+            </div>
           </div>
         </div>
       </div>

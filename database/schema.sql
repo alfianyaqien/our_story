@@ -46,14 +46,39 @@ CREATE TABLE IF NOT EXISTS notes (
 -- Photos table
 CREATE TABLE IF NOT EXISTS photos (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  filename VARCHAR(255) NOT NULL,
-  caption TEXT,
-  uploaded_by INT NOT NULL,
+  user_id INT NOT NULL,
+  title VARCHAR(255),
+  description TEXT,
+  file_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  file_size INT NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  width INT,
+  height INT,
+  album_id INT NULL,
   uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  date_taken TIMESTAMP NULL,
-  FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_uploaded_by (uploaded_by),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE SET NULL,
+  INDEX idx_user_id (user_id),
+  INDEX idx_album_id (album_id),
   INDEX idx_uploaded_at (uploaded_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Albums table
+CREATE TABLE IF NOT EXISTS albums (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+  cover_photo_id INT NULL,
+  photo_count INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_user_id (user_id),
+  INDEX idx_name (name),
+  INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Letter Templates table

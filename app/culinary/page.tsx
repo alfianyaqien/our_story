@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ChefHat, Heart, MapPin, Edit2, Trash2, Upload, X, ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import EmojiStarRating, { CompactEmojiRating } from '@/components/EmojiStarRating';
 
 interface CulinaryPlan {
   id: number;
@@ -243,12 +244,15 @@ export default function RecipesPage() {
                   <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-sm font-medium">
                     {selectedPlan.priceRange}
                   </span>
-                  {selectedPlan.rating && (
-                    <span className="flex items-center gap-1 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-full text-sm font-medium">
-                      ⭐ {selectedPlan.rating}/5
-                    </span>
-                  )}
                 </div>
+
+                {/* Rating Display with Emoji */}
+                {selectedPlan.rating && (
+                  <div className="mt-4 mb-4">
+                    <EmojiStarRating value={selectedPlan.rating} readonly={true} size="md" />
+                  </div>
+                )}
+
                 {selectedPlan.location && (
                   <div className="flex items-start gap-2 text-gray-600 dark:text-gray-400 mb-2">
                     <MapPin size={18} className="mt-1 flex-shrink-0" />
@@ -446,12 +450,14 @@ export default function RecipesPage() {
                   <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-medium">
                     {plan.priceRange}
                   </span>
-                  {plan.rating && (
-                    <span className="flex items-center gap-1 px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded-full text-xs font-medium">
-                      ⭐ {plan.rating}
-                    </span>
-                  )}
                 </div>
+
+                {/* Compact Emoji Rating for List View */}
+                {plan.rating && (
+                  <div className="mb-3">
+                    <CompactEmojiRating value={plan.rating} />
+                  </div>
+                )}
 
                 {plan.recommendedMenu && (
                   <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
@@ -539,7 +545,7 @@ function CulinaryForm({ plan, onSave, onCancel }: { plan?: CulinaryPlan | null; 
   const [recommendedMenu, setRecommendedMenu] = useState(plan?.recommendedMenu || '');
   const [notes, setNotes] = useState(plan?.notes || '');
   const [status, setStatus] = useState<'wishlist' | 'planned' | 'visited'>(plan?.status || 'wishlist');
-  const [rating, setRating] = useState(plan?.rating?.toString() || '');
+  const [rating, setRating] = useState<number | undefined>(plan?.rating);
   const [visitDate, setVisitDate] = useState(plan?.visitDate || '');
   const [uploadedPhotos, setUploadedPhotos] = useState<File[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState<number | null>(null);
@@ -577,7 +583,7 @@ function CulinaryForm({ plan, onSave, onCancel }: { plan?: CulinaryPlan | null; 
         recommendedMenu: recommendedMenu || undefined,
         notes: notes || undefined,
         status,
-        rating: rating ? parseInt(rating) : undefined,
+        rating: rating || undefined,
         visitDate: visitDate || undefined,
         isFavorite: plan?.isFavorite || false,
       }),
@@ -717,15 +723,13 @@ function CulinaryForm({ plan, onSave, onCancel }: { plan?: CulinaryPlan | null; 
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rating (1-5)</label>
-              <input
-                type="number"
-                min="1"
-                max="5"
-                value={rating}
-                onChange={(e) => setRating(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none bg-white dark:bg-gray-700 dark:text-white"
-                placeholder="1-5 stars"
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                Rate Your Experience
+              </label>
+              <EmojiStarRating 
+                value={rating} 
+                onChange={setRating}
+                size="md"
               />
             </div>
           </div>

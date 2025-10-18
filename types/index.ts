@@ -37,6 +37,18 @@ export interface Photo {
   dateTaken?: string;
 }
 
+export interface Album {
+  id: number;
+  userId: number;
+  name: string;
+  description: string | null;
+  coverPhotoId: number | null;
+  coverPhotoPath: string | null;
+  photoCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LetterTemplate {
   id: number;
   name: string;

@@ -17,6 +17,8 @@ interface PhotoRow extends RowDataPacket {
   width: number | null;
   height: number | null;
   album: string;
+  album_id: number | null;
+  album_name?: string;
   uploaded_at: string;
   created_at: string;
 }
@@ -32,14 +34,29 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const album = searchParams.get('album');
+    const albumId = searchParams.get('albumId');
 
-    let query = 'SELECT * FROM photos ORDER BY uploaded_at DESC';
+    let query = `
+      SELECT 
+        p.*,
+        a.name as album_name
+      FROM photos p
+      LEFT JOIN albums a ON p.album_id = a.id
+      ORDER BY p.uploaded_at DESC
+    `;
     let params: any[] = [];
 
-    if (album && album !== 'all') {
-      query = 'SELECT * FROM photos WHERE album = ? ORDER BY uploaded_at DESC';
-      params = [album];
+    if (albumId && albumId !== 'all') {
+      query = `
+        SELECT 
+          p.*,
+          a.name as album_name
+        FROM photos p
+        LEFT JOIN albums a ON p.album_id = a.id
+        WHERE p.album_id = ?
+        ORDER BY p.uploaded_at DESC
+      `;
+      params = [albumId];
     }
 
     const [rows] = await pool.execute<PhotoRow[]>(query, params);
@@ -55,7 +72,8 @@ export async function GET(request: NextRequest) {
       mimeType: photo.mime_type,
       width: photo.width,
       height: photo.height,
-      album: photo.album,
+      album: photo.album_name || 'General',
+      albumId: photo.album_id,
       uploadedAt: photo.uploaded_at,
       createdAt: photo.created_at
     }));
@@ -111,6 +129,14 @@ export async function DELETE(request: NextRequest) {
       [photoId]
     );
 
+    // Update album photo count
+    if (photo.album_id) {
+      await pool.execute(
+        'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = ?) WHERE id = ?',
+        [photo.album_id, photo.album_id]
+      );
+    }
+
     return NextResponse.json({ 
       success: true,
       message: 'Photo deleted successfully' 
@@ -131,16 +157,43 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    const { id, title, description, album } = await request.json();
+    const { id, title, description, albumId } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'Photo ID required' }, { status: 400 });
     }
 
-    await pool.execute<ResultSetHeader>(
-      'UPDATE photos SET title = ?, description = ?, album = ? WHERE id = ?',
-      [title || null, description || null, album || 'general', id]
+    // Get current album_id before update
+    const [currentPhoto] = await pool.execute<PhotoRow[]>(
+      'SELECT album_id FROM photos WHERE id = ?',
+      [id]
     );
+
+    if (currentPhoto.length === 0) {
+      return NextResponse.json({ error: 'Photo not found' }, { status: 404 });
+    }
+
+    const oldAlbumId = currentPhoto[0].album_id;
+
+    await pool.execute<ResultSetHeader>(
+      'UPDATE photos SET title = ?, description = ?, album_id = ? WHERE id = ?',
+      [title || null, description || null, albumId || null, id]
+    );
+
+    // Update photo counts for both old and new albums
+    if (oldAlbumId) {
+      await pool.execute(
+        'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = ?) WHERE id = ?',
+        [oldAlbumId, oldAlbumId]
+      );
+    }
+
+    if (albumId && albumId !== oldAlbumId) {
+      await pool.execute(
+        'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = ?) WHERE id = ?',
+        [albumId, albumId]
+      );
+    }
 
     return NextResponse.json({ 
       success: true,

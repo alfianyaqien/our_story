@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
-import { Camera, Upload, X, Trash2, Image as ImageIcon, ChevronLeft, ChevronRight, Edit2, Save } from 'lucide-react';
+import { Camera, Upload, X, Trash2, Image as ImageIcon, ChevronLeft, ChevronRight, Edit2, Save, FolderOpen } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
+import AlbumManager from '@/components/AlbumManager';
 
 interface Photo {
   id: number;
@@ -17,30 +18,62 @@ interface Photo {
   width: number | null;
   height: number | null;
   album: string;
+  albumId: number | null;
   uploadedAt: string;
   createdAt: string;
 }
 
+interface Album {
+  id: number;
+  userId: number;
+  name: string;
+  description: string | null;
+  coverPhotoId: number | null;
+  coverPhotoPath: string | null;
+  photoCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function GalleryPage() {
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [albums, setAlbums] = useState<Album[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
-  const [filterAlbum, setFilterAlbum] = useState('all');
+  const [filterAlbumId, setFilterAlbumId] = useState<string>('all');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedPhotos, setUploadedPhotos] = useState<Photo[]>([]);
   const [showStoryModal, setShowStoryModal] = useState(false);
+  const [showAlbumManager, setShowAlbumManager] = useState(false);
   const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
-  const [storyForm, setStoryForm] = useState({ title: '', description: '' });
+  const [storyForm, setStoryForm] = useState({ 
+    title: '', 
+    description: '', 
+    albumId: null as number | null 
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchPhotos();
-  }, [filterAlbum]);
+    fetchAlbums();
+  }, [filterAlbumId]);
+
+  const fetchAlbums = async () => {
+    try {
+      const response = await fetch('/api/albums');
+      if (response.ok) {
+        const data = await response.json();
+        setAlbums(data.albums);
+      }
+    } catch (error) {
+      console.error('Error fetching albums:', error);
+    }
+  };
 
   const fetchPhotos = async () => {
-    const url = filterAlbum === 'all' 
+    const url = filterAlbumId === 'all' 
       ? '/api/photos' 
-      : `/api/photos?album=${filterAlbum}`;
+      : `/api/photos?albumId=${filterAlbumId}`;
     
     const response = await fetch(url);
     if (response.ok) {
@@ -62,7 +95,15 @@ export default function GalleryPage() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('title', file.name.split('.')[0]);
-      formData.append('album', filterAlbum === 'all' ? 'general' : filterAlbum);
+      
+      // Use current filter or default to General album
+      const albumIdToUse = filterAlbumId === 'all' 
+        ? albums.find(a => a.name === 'General')?.id?.toString() || ''
+        : filterAlbumId;
+      
+      if (albumIdToUse) {
+        formData.append('albumId', albumIdToUse);
+      }
 
       try {
         const response = await fetch('/api/photos/upload', {
@@ -97,7 +138,8 @@ export default function GalleryPage() {
       setEditingPhoto(newlyUploadedPhotos[0]);
       setStoryForm({
         title: newlyUploadedPhotos[0].title || '',
-        description: newlyUploadedPhotos[0].description || ''
+        description: newlyUploadedPhotos[0].description || '',
+        albumId: newlyUploadedPhotos[0].albumId
       });
       setShowStoryModal(true);
     }
@@ -133,7 +175,7 @@ export default function GalleryPage() {
           id: editingPhoto.id,
           title: storyForm.title || null,
           description: storyForm.description || null,
-          album: editingPhoto.album,
+          albumId: storyForm.albumId,
         }),
       });
 
@@ -145,7 +187,8 @@ export default function GalleryPage() {
           setEditingPhoto(nextPhoto);
           setStoryForm({
             title: nextPhoto.title || '',
-            description: nextPhoto.description || ''
+            description: nextPhoto.description || '',
+            albumId: nextPhoto.albumId
           });
         } else {
           setShowStoryModal(false);
@@ -169,7 +212,8 @@ export default function GalleryPage() {
       setEditingPhoto(nextPhoto);
       setStoryForm({
         title: nextPhoto.title || '',
-        description: nextPhoto.description || ''
+        description: nextPhoto.description || '',
+        albumId: nextPhoto.albumId
       });
     } else {
       setShowStoryModal(false);
@@ -183,7 +227,8 @@ export default function GalleryPage() {
     setEditingPhoto(selectedPhoto);
     setStoryForm({
       title: selectedPhoto.title || '',
-      description: selectedPhoto.description || ''
+      description: selectedPhoto.description || '',
+      albumId: selectedPhoto.albumId
     });
     setUploadedPhotos([selectedPhoto]);
     setSelectedPhoto(null);
@@ -236,30 +281,37 @@ export default function GalleryPage() {
         {/* Action Bar */}
         <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
           {/* Album Filter */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             <button
-              onClick={() => setFilterAlbum('all')}
+              onClick={() => setFilterAlbumId('all')}
               className={`px-4 py-2 rounded-lg font-medium transition ${
-                filterAlbum === 'all'
-                  ? 'bg-blue-500 text-white shadow-md'
+                filterAlbumId === 'all'
+                  ? 'bg-teal-600 text-white shadow-md'
                   : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
             >
               📸 All Photos
             </button>
-            {getUniqueAlbums().map(album => (
+            {albums.map(album => (
               <button
-                key={album}
-                onClick={() => setFilterAlbum(album)}
+                key={album.id}
+                onClick={() => setFilterAlbumId(album.id.toString())}
                 className={`px-4 py-2 rounded-lg font-medium transition ${
-                  filterAlbum === album
-                    ? 'bg-blue-500 text-white shadow-md'
+                  filterAlbumId === album.id.toString()
+                    ? 'bg-teal-600 text-white shadow-md'
                     : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }`}
               >
-                {getAlbumIcon(album)} {getAlbumLabel(album)}
+                {getAlbumIcon(album.name.toLowerCase())} {album.name} ({album.photoCount})
               </button>
             ))}
+            <button
+              onClick={() => setShowAlbumManager(true)}
+              className="px-4 py-2 rounded-lg font-medium transition bg-white dark:bg-gray-800 text-teal-600 dark:text-teal-400 border-2 border-teal-600 dark:border-teal-400 hover:bg-teal-50 dark:hover:bg-gray-700 flex items-center gap-2"
+            >
+              <FolderOpen size={18} />
+              Manage Albums
+            </button>
           </div>
 
           {/* Upload Button */}
@@ -418,7 +470,7 @@ export default function GalleryPage() {
                       className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
                     >
                       <Edit2 size={16} />
-                      Edit Story
+                      Edit Photo
                     </button>
                     <button
                       onClick={() => handleDelete(selectedPhoto.id)}
@@ -441,7 +493,7 @@ export default function GalleryPage() {
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                    Add Story to Photo
+                    {uploadedPhotos.length > 1 ? 'Add Story to Photos' : 'Edit Photo'}
                   </h2>
                   <button
                     onClick={() => {
@@ -502,6 +554,24 @@ export default function GalleryPage() {
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none"
                     />
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Album
+                    </label>
+                    <select
+                      value={storyForm.albumId || ''}
+                      onChange={(e) => setStoryForm({ ...storyForm, albumId: e.target.value ? parseInt(e.target.value) : null })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    >
+                      <option value="">Select an album...</option>
+                      {albums.map(album => (
+                        <option key={album.id} value={album.id}>
+                          {getAlbumIcon(album.name.toLowerCase())} {album.name} ({album.photoCount} photos)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Action Buttons */}
@@ -524,6 +594,25 @@ export default function GalleryPage() {
             </div>
           </div>
         )}
+
+        {/* Album Manager Modal */}
+        <AlbumManager
+          isOpen={showAlbumManager}
+          onClose={() => setShowAlbumManager(false)}
+          onAlbumCreated={() => {
+            fetchAlbums();
+            fetchPhotos();
+          }}
+          onAlbumUpdated={() => {
+            fetchAlbums();
+            fetchPhotos();
+          }}
+          onAlbumDeleted={() => {
+            fetchAlbums();
+            fetchPhotos();
+            setFilterAlbumId('all');
+          }}
+        />
       </div>
     </div>
   );

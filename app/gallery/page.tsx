@@ -296,6 +296,15 @@ export default function GalleryPage() {
   const startSlideshow = () => {
     if (photos.length === 0) return;
 
+    // An auto-advancing slideshow is exactly the motion this opts out of.
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      if (!selectedPhoto) setSelectedPhoto(photos[0]);
+      return; // open the lightbox, but let the user step through manually
+    }
+
     // Start from first photo if none selected, or continue from current
     if (!selectedPhoto) {
       setSelectedPhoto(photos[0]);

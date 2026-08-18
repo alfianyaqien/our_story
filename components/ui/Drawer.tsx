@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useDialogFocus } from '@/lib/useDialogFocus';
 
 /**
  * Right-side slide-in drawer. Used for detail views and contextual info.
@@ -27,6 +28,7 @@ export function Drawer({
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  const dialogRef = useDialogFocus(open && mounted);
 
   useEffect(() => {
     if (!open) return;
@@ -48,10 +50,12 @@ export function Drawer({
         onClick={onClose}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         className={cn(
-          'absolute right-0 top-0 flex h-full w-full flex-col border-l border-default bg-surface shadow-pop animate-slide-in-right',
+          'absolute right-0 top-0 flex h-full w-full flex-col border-l border-default bg-surface shadow-pop animate-slide-in-right focus:outline-none',
           width
         )}
       >

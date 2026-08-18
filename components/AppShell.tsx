@@ -293,7 +293,9 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 px-4 pb-12 lg:px-8">{children}</main>
+        <main id="main" className="flex-1 px-4 pb-12 lg:px-8">
+          {children}
+        </main>
       </div>
     </div>
   );

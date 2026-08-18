@@ -80,7 +80,10 @@ export function AuthShell({
       </div>
 
       {/* Form column */}
-      <div className="relative flex w-full flex-col items-center justify-center p-6 lg:w-1/2">
+      <main
+        id="main"
+        className="relative flex w-full flex-col items-center justify-center p-6 lg:w-1/2"
+      >
         <div className="absolute right-4 top-4 z-10">
           <ThemeToggle />
         </div>
@@ -96,7 +99,7 @@ export function AuthShell({
           )}
           {children}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

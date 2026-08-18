@@ -7,7 +7,7 @@ import { PageTitle } from '@/components/ui/PageTitle';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Field } from '@/components/ui/Input';
-import { EmptyState } from '@/components/ui/Feedback';
+import { EmptyState, Skeleton } from '@/components/ui/Feedback';
 import { cn } from '@/lib/utils';
 
 interface Template {
@@ -27,16 +27,21 @@ export default function LetterMakerPage() {
     Record<string, string>
   >({});
   const [generatedLetter, setGeneratedLetter] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchTemplates();
   }, []);
 
   const fetchTemplates = async () => {
-    const response = await fetch('/api/letter-templates');
-    if (response.ok) {
-      const data = await response.json();
-      setTemplates(data.templates);
+    try {
+      const response = await fetch('/api/letter-templates');
+      if (response.ok) {
+        const data = await response.json();
+        setTemplates(data.templates);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -81,7 +86,14 @@ export default function LetterMakerPage() {
             Choose a template
           </h2>
           <div className="space-y-3">
-            {templates.length === 0 && (
+            {loading &&
+              [0, 1, 2].map((i) => (
+                <Card key={i} className="p-4">
+                  <Skeleton className="h-5 w-2/3" />
+                  <Skeleton className="mt-2 h-3 w-1/3" />
+                </Card>
+              ))}
+            {!loading && templates.length === 0 && (
               <Card className="p-6 text-center text-sm text-muted">
                 No templates available.
               </Card>

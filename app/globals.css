@@ -97,3 +97,60 @@
     background: transparent;
   }
 }
+
+/* ---------------------------------------------------------------
+   Respect prefers-reduced-motion. The design system uses slide-up,
+   scale-in, slide-in-right and an infinite float; all of them are
+   decorative, so drop them rather than shortening them.
+   --------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ---------------------------------------------------------------
+   Skip-to-content link. Hidden until keyboard-focused. Written as a
+   real class rather than focus:not-sr-only + focus:fixed, because
+   not-sr-only's position:static is emitted after .fixed and wins.
+   --------------------------------------------------------------- */
+.skip-link {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.skip-link:focus {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 100;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  overflow: visible;
+  clip: auto;
+  border-radius: 0.875rem;
+  background-color: rgb(var(--surface-rgb));
+  color: rgb(var(--fg-rgb));
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 12px 40px -8px rgba(16, 24, 40, 0.22);
+  outline: 2px solid #15a18b;
+  outline-offset: 2px;
+}

@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useDialogFocus } from '@/lib/useDialogFocus';
 import { Button } from './Button';
 
 const SIZES = {
@@ -35,6 +36,7 @@ export function Modal({
   // Portals need a real DOM; only render after mount so SSR stays safe.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  const dialogRef = useDialogFocus(open && mounted);
 
   useEffect(() => {
     if (!open) return;
@@ -56,10 +58,12 @@ export function Modal({
         onClick={onClose}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         className={cn(
-          'relative max-h-[90vh] w-full overflow-y-auto scrollbar-thin rounded-2xl border border-default bg-surface shadow-pop animate-scale-in',
+          'relative max-h-[90vh] w-full overflow-y-auto scrollbar-thin rounded-2xl border border-default bg-surface shadow-pop animate-scale-in focus:outline-none',
           SIZES[size]
         )}
       >

@@ -7,7 +7,7 @@ import { PageTitle } from '@/components/ui/PageTitle';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
-import { EmptyState } from '@/components/ui/Feedback';
+import { EmptyState, Skeleton } from '@/components/ui/Feedback';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { cn } from '@/lib/utils';
 
@@ -27,16 +27,21 @@ export default function NotesPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchNotes();
   }, []);
 
   const fetchNotes = async () => {
-    const response = await fetch('/api/notes');
-    if (response.ok) {
-      const data = await response.json();
-      setNotes(data.notes);
+    try {
+      const response = await fetch('/api/notes');
+      if (response.ok) {
+        const data = await response.json();
+        setNotes(data.notes);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -82,7 +87,14 @@ export default function NotesPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Notes list */}
         <div className="space-y-3 lg:col-span-1">
-          {notes.length === 0 && (
+          {loading &&
+            [0, 1, 2].map((i) => (
+              <Card key={i} className="p-4">
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="mt-2 h-3 w-1/3" />
+              </Card>
+            ))}
+          {!loading && notes.length === 0 && (
             <Card className="p-6 text-center text-sm text-muted">
               No notes yet.
             </Card>

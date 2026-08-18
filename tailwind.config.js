@@ -50,16 +50,6 @@ module.exports = {
           purple: '#7e6cc0',
           blue: '#6f86c9',
         },
-        // Legacy bluish theme - still used by feature pages not yet rebuilt.
-        'love-blue': '#6B9FE8',
-        'love-sky': '#87CEEB',
-        'love-ocean': '#4A90E2',
-        'love-lavender': '#B8C5E6',
-        'love-ice': '#E6F2FF',
-        'love-navy': '#2C5AA0',
-        'love-pink': '#6B9FE8',
-        'love-red': '#4A90E2',
-        'love-purple': '#B8C5E6',
       },
       borderRadius: {
         xl: '0.875rem',
@@ -92,19 +82,11 @@ module.exports = {
           from: { transform: 'translateX(100%)' },
           to: { transform: 'translateX(0)' },
         },
-        // Legacy animations used by Decorations.tsx and feature pages.
+        // Used by Decorations.tsx.
         float: {
           '0%, 100%': { transform: 'translateY(0) translateX(0)' },
           '33%': { transform: 'translateY(-20px) translateX(10px)' },
           '66%': { transform: 'translateY(-10px) translateX(-10px)' },
-        },
-        shimmer: {
-          '0%': { backgroundPosition: '-1000px 0' },
-          '100%': { backgroundPosition: '1000px 0' },
-        },
-        fadeIn: {
-          '0%': { opacity: '0', transform: 'translateY(10px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
         },
       },
       animation: {
@@ -114,8 +96,6 @@ module.exports = {
         pop: 'pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
         'slide-in-right': 'slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
         float: 'float 8s ease-in-out infinite',
-        shimmer: 'shimmer 3s linear infinite',
-        fadeIn: 'fadeIn 0.5s ease-out',
       },
     },
   },

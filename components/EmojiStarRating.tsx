@@ -28,34 +28,56 @@ export default function EmojiStarRating({ value, onChange, readonly = false, siz
 
   return (
     <div className="space-y-3">
-      {/* Star Selection */}
-      <div className={`flex items-center ${currentSize.gap}`}>
+      {/* Star selection. Readonly ratings render as plain marks with a single
+          accessible label - not five disabled buttons. Interactive stars get a
+          44px hit area so they are comfortable to tap on a phone. */}
+      <div
+        className={`flex items-center ${currentSize.gap}`}
+        role={readonly ? 'img' : undefined}
+        aria-label={readonly ? `Rated ${currentRating} out of 5` : undefined}
+      >
         {[1, 2, 3, 4, 5].map((star) => {
           const isSelected = star <= currentRating;
-          const isHoverable = !readonly && onChange;
+
+          const mark = (
+            <Star
+              size={currentSize.star}
+              className={`
+                ${isSelected ? 'fill-current' : ''}
+                ${isSelected && ratingEmojis[star] ? ratingEmojis[star].color : 'text-muted/40'}
+                transition-colors duration-200
+              `}
+            />
+          );
+
+          if (readonly) {
+            return (
+              <span
+                key={star}
+                className={`transition-all duration-200 ${isSelected ? 'scale-110' : 'opacity-50'}`}
+              >
+                {mark}
+              </span>
+            );
+          }
 
           return (
             <button
               key={star}
               type="button"
               onClick={() => onChange && onChange(star)}
-              disabled={readonly}
+              aria-label={`${star} - ${ratingEmojis[star].label}`}
+              aria-pressed={isSelected}
               className={`
+                grid h-11 w-11 place-items-center rounded-lg
                 transition-all duration-200 transform
-                ${isHoverable ? 'hover:scale-125 cursor-pointer' : 'cursor-default'}
-                ${isSelected ? 'scale-110' : 'opacity-50'}
-                ${readonly ? '' : 'hover:opacity-100'}
+                hover:scale-110 hover:opacity-100 cursor-pointer
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50
+                ${isSelected ? 'scale-105' : 'opacity-50'}
               `}
               title={ratingEmojis[star].label}
             >
-              <Star
-                size={currentSize.star}
-                className={`
-                  ${isSelected ? 'fill-current' : ''}
-                  ${isSelected && ratingEmojis[star] ? ratingEmojis[star].color : 'text-gray-300 dark:text-gray-600'}
-                  transition-colors duration-200
-                `}
-              />
+              {mark}
             </button>
           );
         })}
@@ -72,7 +94,7 @@ export default function EmojiStarRating({ value, onChange, readonly = false, siz
               {ratingEmojis[currentRating].label}
             </span>
             {!readonly && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-muted">
                 {currentRating}/5 stars
               </p>
             )}
@@ -82,7 +104,7 @@ export default function EmojiStarRating({ value, onChange, readonly = false, siz
 
       {/* Placeholder when no rating */}
       {currentRating === 0 && !readonly && (
-        <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+        <p className="text-sm text-muted italic">
           Click the stars to rate your experience
         </p>
       )}
@@ -101,7 +123,7 @@ export function CompactEmojiRating({ value }: CompactEmojiRatingProps) {
   const rating = ratingEmojis[value];
 
   return (
-    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm">
+    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface rounded-full border border-default shadow-soft">
       <span className="text-lg leading-none">{rating.emoji}</span>
       <div className="flex items-center gap-1">
         {[1, 2, 3, 4, 5].map((star) => (
@@ -115,7 +137,7 @@ export function CompactEmojiRating({ value }: CompactEmojiRatingProps) {
           />
         ))}
       </div>
-      <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+      <span className="text-xs font-medium text-muted">
         {value}/5
       </span>
     </div>

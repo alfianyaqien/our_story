@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -79,18 +79,53 @@ function RailItem({
   );
 }
 
+export interface ShellUser {
+  username?: string;
+  displayName?: string;
+}
+
 export function AppShell({
   children,
   user,
 }: {
   children: ReactNode;
-  user?: { username?: string; displayName?: string } | null;
+  /**
+   * Pass the session user when the page already fetched it (the dashboard
+   * does). Omit it and the shell fetches /api/auth/session itself and
+   * redirects to login on 401, so feature pages don't each repeat that.
+   */
+  user?: ShellUser | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
   const [mobileNav, setMobileNav] = useState(false);
+  const [ownUser, setOwnUser] = useState<ShellUser | null>(null);
+  const selfFetch = user === undefined;
+
+  useEffect(() => {
+    if (!selfFetch) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/session');
+        if (!res.ok) {
+          router.push('/');
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled) setOwnUser(data.user);
+      } catch {
+        router.push('/');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selfFetch, router]);
+
+  const shellUser = selfFetch ? ownUser : user;
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -216,14 +251,14 @@ export function AppShell({
               align="right"
               trigger={
                 <button className="flex h-11 items-center gap-2.5 rounded-2xl pl-1.5 pr-2.5 transition-colors hover:bg-surface-2">
-                  <Avatar name={user?.displayName || user?.username} size="sm" />
+                  <Avatar name={shellUser?.displayName || shellUser?.username} size="sm" />
                   <div className="hidden min-w-0 text-left sm:block">
                     <p className="max-w-[9rem] truncate text-sm font-semibold leading-tight text-fg">
-                      {user?.displayName || user?.username || 'Account'}
+                      {shellUser?.displayName || shellUser?.username || 'Account'}
                     </p>
-                    {user?.username && (
+                    {shellUser?.username && (
                       <p className="max-w-[9rem] truncate text-[11px] text-muted">
-                        @{user.username}
+                        @{shellUser.username}
                       </p>
                     )}
                   </div>
@@ -232,7 +267,7 @@ export function AppShell({
             >
               <div className="px-2.5 py-2 sm:hidden">
                 <p className="truncate text-sm font-semibold text-fg">
-                  {user?.displayName || user?.username || 'Account'}
+                  {shellUser?.displayName || shellUser?.username || 'Account'}
                 </p>
               </div>
               <MenuDivider />

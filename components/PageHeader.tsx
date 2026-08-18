@@ -16,12 +16,12 @@ export default function PageHeader({ title, showBackButton = true }: PageHeaderP
         {showBackButton && (
           <Link 
             href="/dashboard" 
-            className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+            className="grid h-11 w-11 place-items-center rounded-2xl border border-default bg-surface text-muted shadow-soft transition-all hover:border-brand-300 hover:text-fg"
           >
-            <ArrowLeft size={20} className="text-gray-700 dark:text-gray-300" />
+            <ArrowLeft size={20} />
           </Link>
         )}
-        <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-love-ocean to-love-navy bg-clip-text text-transparent">
+        <h1 className="text-3xl md:text-4xl font-bold text-fg">
           {title}
         </h1>
       </div>

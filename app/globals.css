@@ -20,11 +20,6 @@
 
   /* Hex mirrors, for the few places that read the var() directly. */
   --border: #e8ebf0;
-
-  /* Legacy vars still referenced by the not-yet-rebuilt feature pages. */
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 240, 248, 255;
-  --background-end-rgb: 255, 255, 255;
 }
 
 .dark {
@@ -101,26 +96,4 @@
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
-}
-
-/* ---------------------------------------------------------------
-   Legacy helpers - still used by the feature pages that have not
-   been migrated to the new design system yet.
-   --------------------------------------------------------------- */
-.love-gradient {
-  background: linear-gradient(135deg, #87ceeb 0%, #4a90e2 50%, #2c5aa0 100%);
-}
-
-.card-hover {
-  transition: transform 0.3s ease, box-shadow 0.3s ease,
-    background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.card-hover:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(74, 144, 226, 0.3);
-}
-
-.dark .card-hover:hover {
-  box-shadow: 0 10px 25px rgba(74, 144, 226, 0.5);
 }

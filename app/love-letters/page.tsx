@@ -1,11 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Mail, Send, Heart, Inbox } from 'lucide-react';
+import { ArrowLeft, Send, Heart, Inbox } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import PageHeader from '@/components/PageHeader';
+import { AppShell } from '@/components/AppShell';
+import { PageTitle } from '@/components/ui/PageTitle';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input, Textarea, Select, Field } from '@/components/ui/Input';
+import { EmptyState } from '@/components/ui/Feedback';
+import { cn } from '@/lib/utils';
 
 interface LoveLetter {
   id: number;
@@ -20,12 +24,13 @@ interface LoveLetter {
   isSent: boolean;
 }
 
+const FILTERS = ['all', 'received', 'sent'] as const;
+
 export default function LoveLettersPage() {
   const [letters, setLetters] = useState<LoveLetter[]>([]);
   const [showCompose, setShowCompose] = useState(false);
   const [selectedLetter, setSelectedLetter] = useState<LoveLetter | null>(null);
   const [filter, setFilter] = useState<'all' | 'received' | 'sent'>('all');
-  const router = useRouter();
 
   useEffect(() => {
     fetchLetters();
@@ -39,97 +44,120 @@ export default function LoveLettersPage() {
     }
   };
 
-  const filteredLetters = letters.filter(letter => {
+  const filteredLetters = letters.filter((letter) => {
     if (filter === 'received') return !letter.isSent;
     if (filter === 'sent') return letter.isSent;
     return true;
   });
 
-  return (
-    <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-love-ice via-white to-love-lavender dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <PageHeader title="Love Letters" />
-        </div>
-        
-        <div className="flex justify-end mb-4">
-          <button
-            onClick={() => setShowCompose(true)}
-            className="flex items-center gap-2 px-4 py-2 love-gradient text-white rounded-lg hover:opacity-90 transition shadow-md"
-          >
-            <Send size={20} />
-            <span>New Letter</span>
-          </button>
-        </div>
+  const listVisible = !showCompose && !selectedLetter;
 
-        {!showCompose && !selectedLetter && (
-          <>
-            {/* Filter */}
-            <div className="flex gap-2 mb-6">
-              {['all', 'received', 'sent'].map((f) => (
+  return (
+    <AppShell>
+      <PageTitle
+        title="Love Letters"
+        description="Encrypted notes, just between you two."
+        action={
+          listVisible && (
+            <Button onClick={() => setShowCompose(true)}>
+              <Send className="h-4 w-4" />
+              New letter
+            </Button>
+          )
+        }
+      />
+
+      {listVisible && (
+        <>
+          <div className="mb-6 flex flex-wrap gap-2">
+            {FILTERS.map((f) => (
+              <Button
+                key={f}
+                variant={filter === f ? 'primary' : 'secondary'}
+                size="sm"
+                className="h-10 capitalize sm:h-8"
+                onClick={() => setFilter(f)}
+              >
+                {f}
+              </Button>
+            ))}
+          </div>
+
+          {filteredLetters.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={Heart}
+                title="No letters yet"
+                description="Write the first one."
+                action={
+                  <Button onClick={() => setShowCompose(true)}>
+                    <Send className="h-4 w-4" />
+                    New letter
+                  </Button>
+                }
+              />
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {filteredLetters.map((letter) => (
                 <button
-                  key={f}
-                  onClick={() => setFilter(f as any)}
-                  className={`px-4 py-2 rounded-lg capitalize transition ${
-                    filter === f
-                      ? 'love-gradient text-white'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                  }`}
+                  key={letter.id}
+                  onClick={() => setSelectedLetter(letter)}
+                  className={cn(
+                    'rounded-2xl border border-default bg-surface p-6 text-left shadow-soft transition-all duration-200',
+                    'hover:-translate-y-0.5 hover:shadow-card',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50'
+                  )}
                 >
-                  {f}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-2 flex items-center gap-2">
+                        {letter.isSent ? (
+                          <Send className="h-4 w-4 shrink-0 text-brand-600 dark:text-brand-400" />
+                        ) : (
+                          <Inbox className="h-4 w-4 shrink-0 text-accent-coral" />
+                        )}
+                        <span className="truncate text-sm font-medium text-muted">
+                          {letter.isSent
+                            ? `To: ${letter.receiverName}`
+                            : `From: ${letter.senderName}`}
+                        </span>
+                      </div>
+                      <h3 className="mb-2 break-words text-lg font-semibold text-fg">
+                        {letter.subject}
+                      </h3>
+                      <p className="line-clamp-2 break-words text-sm text-muted">
+                        {letter.content}
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-xs text-muted">
+                      {formatDistanceToNow(new Date(letter.createdAt), {
+                        addSuffix: true,
+                      })}
+                    </p>
+                  </div>
                 </button>
               ))}
             </div>
+          )}
+        </>
+      )}
 
-            {/* Letters List */}
-            <div className="grid gap-4">
-              {filteredLetters.length === 0 ? (
-                <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow">
-                  <Heart className="mx-auto text-gray-300 dark:text-gray-600 mb-4" size={48} />
-                  <p className="text-gray-500 dark:text-gray-400">No letters yet. Write your first love letter!</p>
-                </div>
-              ) : (
-                filteredLetters.map((letter) => (
-                  <div
-                    key={letter.id}
-                    onClick={() => setSelectedLetter(letter)}
-                    className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/50 rounded-xl shadow-lg p-6 cursor-pointer card-hover"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          {letter.isSent ? (
-                            <Send size={16} className="text-blue-500" />
-                          ) : (
-                            <Inbox size={16} className="text-pink-500" />
-                          )}
-                          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {letter.isSent ? `To: ${letter.receiverName}` : `From: ${letter.senderName}`}
-                          </span>
-                        </div>
-                        <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-2">
-                          {letter.subject}
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-400 line-clamp-2">{letter.content}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {formatDistanceToNow(new Date(letter.createdAt), { addSuffix: true })}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </>
-        )}
-
-        {showCompose && <ComposeForm onClose={() => { setShowCompose(false); fetchLetters(); }} />}
-        {selectedLetter && <LetterView letter={selectedLetter} onClose={() => setSelectedLetter(null)} />}
-      </div>
-    </div>
+      {showCompose && (
+        <ComposeForm
+          onClose={() => {
+            setShowCompose(false);
+            fetchLetters();
+          }}
+        />
+      )}
+      {selectedLetter && (
+        <LetterView
+          letter={selectedLetter}
+          onClose={() => setSelectedLetter(null)}
+        />
+      )}
+    </AppShell>
   );
 }
 
@@ -156,108 +184,115 @@ function ComposeForm({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-      <h2 className="text-2xl font-bold mb-6 dark:text-gray-100">Compose Love Letter</h2>
+    <Card className="mx-auto max-w-2xl p-6">
+      <h2 className="mb-6 text-2xl font-bold tracking-tight text-fg">
+        Compose a love letter
+      </h2>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">To</label>
-          <select
+        <Field label="To" required htmlFor="ll-to">
+          <Select
+            id="ll-to"
             value={toUserId}
             onChange={(e) => setToUserId(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-love-red focus:border-transparent outline-none"
             required
           >
             <option value="">Select recipient</option>
             <option value="1">Partner 1</option>
             <option value="2">Partner 2</option>
-          </select>
-        </div>
+          </Select>
+        </Field>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Subject</label>
-          <input
+        <Field label="Subject" required htmlFor="ll-subject">
+          <Input
+            id="ll-subject"
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-love-red focus:border-transparent outline-none"
             placeholder="What's this letter about?"
             required
           />
-        </div>
+        </Field>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Message</label>
-          <textarea
+        <Field label="Message" required htmlFor="ll-content">
+          <Textarea
+            id="ll-content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={10}
-            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-love-red focus:border-transparent outline-none resize-none"
-            placeholder="Pour your heart out..."
+            className="min-h-[14rem]"
+            placeholder="Pour your heart out…"
             required
           />
-        </div>
+        </Field>
 
-        <div className="flex gap-3">
-          <button
+        <div className="flex flex-wrap gap-3 pt-2">
+          <Button
             type="submit"
-            disabled={isSubmitting}
-            className="flex-1 love-gradient text-white font-semibold py-3 rounded-lg hover:opacity-90 transition disabled:opacity-50"
+            size="lg"
+            className="flex-1"
+            loading={isSubmitting}
           >
-            {isSubmitting ? 'Sending...' : 'Send Letter'}
-          </button>
-          <button
+            {isSubmitting ? 'Sending…' : 'Send letter'}
+          </Button>
+          <Button
             type="button"
+            variant="secondary"
+            size="lg"
             onClick={onClose}
-            className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
           >
             Cancel
-          </button>
+          </Button>
         </div>
       </form>
-    </div>
+    </Card>
   );
 }
 
-function LetterView({ letter, onClose }: { letter: LoveLetter; onClose: () => void }) {
+function LetterView({
+  letter,
+  onClose,
+}: {
+  letter: LoveLetter;
+  onClose: () => void;
+}) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-      <button
-        onClick={onClose}
-        className="mb-6 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition"
-      >
-        <Mail size={20} />
+    <Card className="mx-auto max-w-2xl p-6 sm:p-8">
+      <Button variant="ghost" size="sm" className="mb-6 h-10 sm:h-8" onClick={onClose}>
+        <ArrowLeft className="h-4 w-4" />
         Back to letters
-      </button>
+      </Button>
 
       <div className="mb-6">
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
+        <div className="mb-2 flex items-center gap-2 text-sm text-muted">
           {letter.isSent ? (
             <>
-              <Send size={16} />
-              <span>To: {letter.receiverName}</span>
+              <Send className="h-4 w-4 shrink-0" />
+              <span className="truncate">To: {letter.receiverName}</span>
             </>
           ) : (
             <>
-              <Inbox size={16} />
-              <span>From: {letter.senderName}</span>
+              <Inbox className="h-4 w-4 shrink-0" />
+              <span className="truncate">From: {letter.senderName}</span>
             </>
           )}
         </div>
-        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-2">{letter.subject}</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          {formatDistanceToNow(new Date(letter.createdAt), { addSuffix: true })}
+        <h2 className="break-words text-2xl font-bold tracking-tight text-fg sm:text-3xl">
+          {letter.subject}
+        </h2>
+        <p className="mt-2 text-sm text-muted">
+          {formatDistanceToNow(new Date(letter.createdAt), {
+            addSuffix: true,
+          })}
         </p>
       </div>
 
-      <div className="prose max-w-none">
-        <div className="bg-pink-50 dark:bg-pink-900/20 rounded-lg p-6 whitespace-pre-wrap dark:text-gray-300">
-          {letter.content}
-        </div>
+      <div className="whitespace-pre-wrap break-words rounded-xl border border-default bg-surface-2 p-6 leading-relaxed text-fg">
+        {letter.content}
       </div>
 
       <div className="mt-6 flex justify-center">
-        <Heart className="text-love-red" size={32} fill="#FF6B9D" />
+        <Heart className="h-8 w-8 text-brand-500" fill="currentColor" />
       </div>
-    </div>
+    </Card>
   );
 }

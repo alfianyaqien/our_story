@@ -17,6 +17,7 @@ import {
   X,
   Moon,
   Sun,
+  ArrowLeft,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -225,7 +226,7 @@ export function AppShell({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-[4.5rem] items-center gap-3 px-4 lg:px-8">
+        <header className="flex h-[4.5rem] items-center gap-1 px-4 lg:px-8">
           <button
             className="grid h-11 w-11 place-items-center rounded-2xl text-muted lg:hidden"
             onClick={() => setMobileNav(true)}
@@ -233,6 +234,20 @@ export function AppShell({
           >
             <Menu className="h-5 w-5" />
           </button>
+
+          {/* Back to dashboard. Only on mobile and only off the dashboard
+              itself - the desktop rail already provides this, but on a phone
+              the drawer is two taps and the app runs standalone as a PWA with
+              no browser back button. */}
+          {pathname !== '/dashboard' && (
+            <Link
+              href="/dashboard"
+              className="grid h-11 w-11 place-items-center rounded-2xl text-muted transition-colors hover:bg-surface-2 hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 lg:hidden"
+              aria-label="Back to dashboard"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+          )}
 
           <div className="ml-auto flex items-center gap-2">
             <button

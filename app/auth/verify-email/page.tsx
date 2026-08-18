@@ -135,7 +135,7 @@ function VerifyEmailContent() {
 
 export default function VerifyEmailPage() {
   return (
-    <AuthShell>
+    <AuthShell back={{ href: '/', label: 'Back to log in' }}>
       <Suspense fallback={<PageLoader label="Verifying…" />}>
         <VerifyEmailContent />
       </Suspense>

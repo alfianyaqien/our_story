@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <AuthShell>
+    <AuthShell back={{ href: '/', label: 'Back to log in' }}>
       <h2 className="text-2xl font-bold tracking-tight text-fg">
         Reset your password
       </h2>

@@ -123,7 +123,7 @@ export default function SignupPage() {
         : 'bg-emerald-500';
 
   return (
-    <AuthShell>
+    <AuthShell back={{ href: '/', label: 'Back to log in' }}>
       <h2 className="text-2xl font-bold tracking-tight text-fg">
         Create your account
       </h2>

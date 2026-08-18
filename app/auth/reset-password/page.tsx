@@ -251,7 +251,7 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <AuthShell>
+    <AuthShell back={{ href: '/', label: 'Back to log in' }}>
       <Suspense fallback={<PageLoader />}>
         <ResetPasswordForm />
       </Suspense>

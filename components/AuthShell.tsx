@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Camera, StickyNote, Mail, ChefHat } from 'lucide-react';
 import { LogoWithText } from './Logo';
 import ThemeToggle from './ThemeToggle';
+import { BackLink } from './ui/BackLink';
 
 const HIGHLIGHTS = [
   {
@@ -27,7 +28,18 @@ const HIGHLIGHTS = [
 ];
 
 /** Two-column auth shell: a brand panel and the form slot. */
-export function AuthShell({ children }: { children: ReactNode }) {
+export function AuthShell({
+  children,
+  back,
+}: {
+  children: ReactNode;
+  /**
+   * Renders a back link above the form. Every auth screen except the login
+   * root should pass this: the app runs standalone as a PWA, so there is no
+   * browser back button to fall back on.
+   */
+  back?: { href: string; label: string };
+}) {
   return (
     <div className="flex min-h-screen bg-app">
       {/* Brand panel - desktop only */}
@@ -77,6 +89,11 @@ export function AuthShell({ children }: { children: ReactNode }) {
           <div className="mb-8 flex justify-center lg:hidden">
             <LogoWithText size="default" showTagline />
           </div>
+          {back && (
+            <div className="mb-4">
+              <BackLink href={back.href}>{back.label}</BackLink>
+            </div>
+          )}
           {children}
         </div>
       </div>

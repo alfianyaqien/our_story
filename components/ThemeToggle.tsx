@@ -9,13 +9,14 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+      // h-11/w-11 = 44px, the minimum comfortable touch target.
+      className="grid h-11 w-11 place-items-center rounded-2xl border border-default bg-surface text-muted shadow-soft transition-all hover:border-brand-300 hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50"
       aria-label="Toggle theme"
     >
       {theme === 'light' ? (
-        <Moon size={20} className="text-gray-700 dark:text-gray-300" />
+        <Moon className="h-[18px] w-[18px]" />
       ) : (
-        <Sun size={20} className="text-gray-700 dark:text-gray-300" />
+        <Sun className="h-[18px] w-[18px]" />
       )}
     </button>
   );

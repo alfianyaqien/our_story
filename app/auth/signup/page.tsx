@@ -2,9 +2,13 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogoWithText } from '@/components/Logo';
-import ThemeToggle from '@/components/ThemeToggle';
+import Link from 'next/link';
 import { Mail, User, Lock, UserCircle, Check, X } from 'lucide-react';
+import { AuthShell } from '@/components/AuthShell';
+import { Button } from '@/components/ui/Button';
+import { Input, Field } from '@/components/ui/Input';
+import { Alert } from '@/components/ui/Feedback';
+import { cn } from '@/lib/utils';
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -12,7 +16,7 @@ export default function SignupPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    displayName: ''
+    displayName: '',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -31,12 +35,13 @@ export default function SignupPage() {
   };
 
   const passwordStrength = getPasswordStrength(formData.password);
-  const passwordsMatch = formData.password && formData.password === formData.confirmPassword;
+  const passwordsMatch =
+    formData.password && formData.password === formData.confirmPassword;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     }));
     setError('');
   };
@@ -69,22 +74,25 @@ export default function SignupPage() {
           username: formData.username,
           email: formData.email,
           password: formData.password,
-          displayName: formData.displayName
+          displayName: formData.displayName,
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        setSuccess(data.message || 'Account created successfully! Please check your email to verify your account.');
+        setSuccess(
+          data.message ||
+            'Account created successfully! Please check your email to verify your account.'
+        );
         setFormData({
           username: '',
           email: '',
           password: '',
           confirmPassword: '',
-          displayName: ''
+          displayName: '',
         });
-        
+
         // Redirect to login after 3 seconds
         setTimeout(() => {
           router.push('/?verified=check-email');
@@ -99,203 +107,182 @@ export default function SignupPage() {
     }
   };
 
+  const strengthLabel =
+    passwordStrength <= 2 ? 'Weak' : passwordStrength <= 3 ? 'Medium' : 'Strong';
+  const strengthTone =
+    passwordStrength <= 2
+      ? 'text-red-600 dark:text-red-400'
+      : passwordStrength <= 3
+        ? 'text-amber-600 dark:text-amber-400'
+        : 'text-emerald-600 dark:text-emerald-400';
+  const strengthBar =
+    passwordStrength <= 2
+      ? 'bg-red-500'
+      : passwordStrength <= 3
+        ? 'bg-amber-500'
+        : 'bg-emerald-500';
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-love-ice via-white to-love-lavender dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Theme Toggle */}
-      <div className="fixed top-4 right-4 z-50">
-        <ThemeToggle />
-      </div>
+    <AuthShell back={{ href: '/', label: 'Back to log in' }}>
+      <h2 className="text-2xl font-bold tracking-tight text-fg">
+        Create your account
+      </h2>
+      <p className="mt-1.5 text-sm text-muted">Start your journey together.</p>
 
-      <div className="max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <LogoWithText size="large" showTagline={true} />
+      <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+        {error && (
+          <Alert variant="error">
+            <span className="flex items-start gap-2">
+              <X size={18} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </span>
+          </Alert>
+        )}
+
+        {success && (
+          <Alert variant="success">
+            <span className="flex items-start gap-2">
+              <Check size={18} className="mt-0.5 shrink-0" />
+              <span>{success}</span>
+            </span>
+          </Alert>
+        )}
+
+        <Field label="Display name" required htmlFor="displayName">
+          <div className="relative">
+            <UserCircle className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input
+              id="displayName"
+              name="displayName"
+              type="text"
+              value={formData.displayName}
+              onChange={handleChange}
+              className="pl-10"
+              placeholder="e.g. Alex"
+              required
+            />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Create Your Account</h2>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">Start your journey together</p>
-        </div>
+        </Field>
 
-        {/* Signup Form */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg flex items-start gap-2">
-                <X size={20} className="flex-shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </div>
-            )}
+        <Field label="Username" required htmlFor="username">
+          <div className="relative">
+            <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input
+              id="username"
+              name="username"
+              type="text"
+              autoComplete="username"
+              value={formData.username}
+              onChange={handleChange}
+              className="pl-10"
+              placeholder="Choose a username"
+              required
+            />
+          </div>
+        </Field>
 
-            {success && (
-              <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg flex items-start gap-2">
-                <Check size={20} className="flex-shrink-0 mt-0.5" />
-                <span>{success}</span>
-              </div>
-            )}
+        <Field label="Email" required htmlFor="email">
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              value={formData.email}
+              onChange={handleChange}
+              className="pl-10"
+              placeholder="your.email@example.com"
+              required
+            />
+          </div>
+        </Field>
 
-            {/* Display Name */}
-            <div>
-              <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Display Name <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  id="displayName"
-                  name="displayName"
-                  type="text"
-                  value={formData.displayName}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-love-ocean dark:focus:ring-love-sky focus:border-transparent outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="e.g., Alex"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Username */}
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Username <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  value={formData.username}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-love-ocean dark:focus:ring-love-sky focus:border-transparent outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="Choose a username"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Email <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-love-ocean dark:focus:ring-love-sky focus:border-transparent outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="your.email@example.com"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Password <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-love-ocean dark:focus:ring-love-sky focus:border-transparent outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="Create a strong password"
-                  required
-                />
-              </div>
-              {formData.password && (
-                <div className="mt-2">
-                  <div className="flex gap-1 mb-1">
-                    {[...Array(5)].map((_, i) => (
-                      <div
-                        key={i}
-                        className={`h-1 flex-1 rounded ${
-                          i < passwordStrength
-                            ? passwordStrength <= 2
-                              ? 'bg-red-500'
-                              : passwordStrength <= 3
-                              ? 'bg-yellow-500'
-                              : 'bg-green-500'
-                            : 'bg-gray-300 dark:bg-gray-600'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Password strength:{' '}
-                    <span
-                      className={
-                        passwordStrength <= 2
-                          ? 'text-red-600 dark:text-red-400'
-                          : passwordStrength <= 3
-                          ? 'text-yellow-600 dark:text-yellow-400'
-                          : 'text-green-600 dark:text-green-400'
-                      }
-                    >
-                      {passwordStrength <= 2 ? 'Weak' : passwordStrength <= 3 ? 'Medium' : 'Strong'}
-                    </span>
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Confirm Password <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-love-ocean dark:focus:ring-love-sky focus:border-transparent outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="Confirm your password"
-                  required
-                />
-                {formData.confirmPassword && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    {passwordsMatch ? (
-                      <Check size={20} className="text-green-500" />
-                    ) : (
-                      <X size={20} className="text-red-500" />
+        <Field label="Password" required htmlFor="password">
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              value={formData.password}
+              onChange={handleChange}
+              className="pl-10"
+              placeholder="Create a strong password"
+              required
+            />
+          </div>
+          {formData.password && (
+            <div className="mt-2">
+              <div className="mb-1 flex gap-1">
+                {[...Array(5)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      'h-1 flex-1 rounded',
+                      i < passwordStrength
+                        ? strengthBar
+                        : 'bg-slate-300 dark:bg-slate-600'
                     )}
-                  </div>
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-muted">
+                Password strength:{' '}
+                <span className={strengthTone}>{strengthLabel}</span>
+              </p>
+            </div>
+          )}
+        </Field>
+
+        <Field label="Confirm password" required htmlFor="confirmPassword">
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              className="pl-10 pr-10"
+              placeholder="Confirm your password"
+              invalid={!!formData.confirmPassword && !passwordsMatch}
+              required
+            />
+            {formData.confirmPassword && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {passwordsMatch ? (
+                  <Check size={18} className="text-emerald-500" />
+                ) : (
+                  <X size={18} className="text-red-500" />
                 )}
               </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading || !passwordsMatch}
-              className="w-full bg-gradient-to-r from-love-sky via-love-ocean to-love-navy text-white font-semibold py-3 rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100"
-            >
-              {isLoading ? 'Creating Account...' : 'Create Account'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-            Already have an account?{' '}
-            <a
-              href="/"
-              className="text-love-ocean dark:text-love-sky font-semibold hover:underline"
-            >
-              Log in
-            </a>
+            )}
           </div>
-        </div>
-      </div>
-    </div>
+        </Field>
+
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          loading={isLoading}
+          disabled={isLoading || !passwordsMatch}
+        >
+          {isLoading ? 'Creating account…' : 'Create account'}
+        </Button>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-muted">
+        Already have an account?{' '}
+        <Link
+          href="/"
+          className="font-semibold text-brand-600 hover:underline dark:text-brand-400"
+        >
+          Log in
+        </Link>
+      </p>
+    </AuthShell>
   );
 }

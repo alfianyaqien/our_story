@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { LogoWithText } from '@/components/Logo';
-import ThemeToggle from '@/components/ThemeToggle';
+import Link from 'next/link';
 import { Mail, Check, ArrowLeft } from 'lucide-react';
+import { AuthShell } from '@/components/AuthShell';
+import { Button } from '@/components/ui/Button';
+import { Input, Field } from '@/components/ui/Input';
+import { Alert } from '@/components/ui/Feedback';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -29,7 +32,10 @@ export default function ForgotPasswordPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setSuccess(data.message || 'If an account exists with this email, you will receive a password reset link.');
+        setSuccess(
+          data.message ||
+            'If an account exists with this email, you will receive a password reset link.'
+        );
         setEmail('');
       } else {
         setError(data.error || 'Failed to process request');
@@ -42,96 +48,55 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-love-ice via-white to-love-lavender dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Theme Toggle */}
-      <div className="fixed top-4 right-4 z-50">
-        <ThemeToggle />
-      </div>
+    <AuthShell back={{ href: '/', label: 'Back to log in' }}>
+      <h2 className="text-2xl font-bold tracking-tight text-fg">
+        Reset your password
+      </h2>
+      <p className="mt-1.5 text-sm text-muted">
+        Enter your email address and we&apos;ll send you a link to reset your
+        password.
+      </p>
 
-      <div className="max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <LogoWithText size="large" showTagline={true} />
+      <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+        {error && <Alert variant="error">{error}</Alert>}
+
+        {success && (
+          <Alert variant="success">
+            <span className="flex items-start gap-2">
+              <Check size={18} className="mt-0.5 shrink-0" />
+              <span>{success}</span>
+            </span>
+          </Alert>
+        )}
+
+        <Field label="Email address" htmlFor="email">
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="pl-10"
+              placeholder="your.email@example.com"
+              required
+            />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Reset Password</h2>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">
-            Enter your email address and we'll send you a link to reset your password
-          </p>
-        </div>
+        </Field>
 
-        {/* Forgot Password Form */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
-                {error}
-              </div>
-            )}
+        <Button type="submit" size="lg" className="w-full" loading={isLoading}>
+          {isLoading ? 'Sending…' : 'Send reset link'}
+        </Button>
+      </form>
 
-            {success && (
-              <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg flex items-start gap-2">
-                <Check size={20} className="flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold">Email sent!</p>
-                  <p className="text-sm mt-1">{success}</p>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setError('');
-                  }}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-love-ocean dark:focus:ring-love-sky focus:border-transparent outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="your.email@example.com"
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-love-sky via-love-ocean to-love-navy text-white font-semibold py-3 rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100"
-            >
-              {isLoading ? 'Sending...' : 'Send Reset Link'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <a
-              href="/"
-              className="inline-flex items-center gap-2 text-love-ocean dark:text-love-sky font-semibold hover:underline"
-            >
-              <ArrowLeft size={16} />
-              Back to Login
-            </a>
-          </div>
-        </div>
-
-        {/* Help Text */}
-        <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400 px-4">
-          <p>Don't have an account?{' '}
-            <a
-              href="/auth/signup"
-              className="text-love-ocean dark:text-love-sky font-semibold hover:underline"
-            >
-              Sign up
-            </a>
-          </p>
-        </div>
-      </div>
-    </div>
+      <Link
+        href="/"
+        className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to log in
+      </Link>
+    </AuthShell>
   );
 }

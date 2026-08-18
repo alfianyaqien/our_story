@@ -1,24 +1,24 @@
 ﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
   <defs>
     <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#B8E6F7;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#87CEEB;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#6BB6D6;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#c7ece5;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#95dccd;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#5cc8b4;stop-opacity:1" />
     </linearGradient>
     <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#87CEEB;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#4A90E2;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#3A7BC8;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#95dccd;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#32b49f;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#15a18b;stop-opacity:1" />
     </linearGradient>
     <linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#2C5AA0;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1E4D7B;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#32b49f;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#0c8b7c;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0b7064;stop-opacity:1" />
     </linearGradient>
     <radialGradient id="glow">
-      <stop offset="0%" style="stop-color:#E6F2FF;stop-opacity:0.6" />
-      <stop offset="70%" style="stop-color:#87CEEB;stop-opacity:0.2" />
-      <stop offset="100%" style="stop-color:#4A90E2;stop-opacity:0" />
+      <stop offset="0%" style="stop-color:#e8f7f4;stop-opacity:0.6" />
+      <stop offset="70%" style="stop-color:#95dccd;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:#32b49f;stop-opacity:0" />
     </radialGradient>
   </defs>
   <circle cx="100" cy="100" r="98" fill="url(#glow)" />

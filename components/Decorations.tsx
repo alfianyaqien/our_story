@@ -48,7 +48,7 @@ export function FloatingHearts({ className = '' }: { className?: string }) {
             animationDuration: `${8 + i}s`,
           }}
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-love-sky opacity-20">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-brand-300 opacity-20">
             <path
               d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
               fill="currentColor"
@@ -112,7 +112,7 @@ export function GradientOrb({ size = 'medium', className = '' }: { size?: 'small
 
   return (
     <div className={`${sizes[size]} ${className} pointer-events-none`}>
-      <div className="w-full h-full rounded-full bg-gradient-to-br from-love-ice via-love-sky to-love-ocean opacity-20 blur-3xl"></div>
+      <div className="w-full h-full rounded-full bg-gradient-to-br from-brand-50 via-brand-300 to-brand-500 opacity-20 blur-3xl"></div>
     </div>
   );
 }
@@ -124,7 +124,7 @@ export function ParticleBackground({ className = '' }: { className?: string }) {
       {[...Array(20)].map((_, i) => (
         <div
           key={i}
-          className="absolute rounded-full bg-love-sky opacity-10 animate-pulse"
+          className="absolute rounded-full bg-brand-300 opacity-10 animate-pulse"
           style={{
             width: `${Math.random() * 6 + 2}px`,
             height: `${Math.random() * 6 + 2}px`,
@@ -144,10 +144,10 @@ export function Divider({ variant = 'default', className = '' }: { variant?: 'de
   if (variant === 'hearts') {
     return (
       <div className={`flex items-center justify-center gap-4 my-8 ${className}`}>
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-love-lavender to-transparent"></div>
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-200 to-transparent"></div>
         <div className="flex gap-2">
           {[...Array(3)].map((_, i) => (
-            <svg key={i} width="12" height="12" viewBox="0 0 24 24" className="text-love-ocean">
+            <svg key={i} width="12" height="12" viewBox="0 0 24 24" className="text-brand-500">
               <path
                 d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
                 fill="currentColor"
@@ -155,7 +155,7 @@ export function Divider({ variant = 'default', className = '' }: { variant?: 'de
             </svg>
           ))}
         </div>
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-love-lavender to-transparent"></div>
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-brand-200 to-transparent"></div>
       </div>
     );
   }
@@ -183,7 +183,7 @@ export function Divider({ variant = 'default', className = '' }: { variant?: 'de
   }
 
   return (
-    <div className={`h-px w-full bg-gradient-to-r from-transparent via-love-lavender to-transparent my-8 ${className}`}></div>
+    <div className={`h-px w-full bg-gradient-to-r from-transparent via-brand-200 to-transparent my-8 ${className}`}></div>
   );
 }
 

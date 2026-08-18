@@ -2,9 +2,30 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
-import { Camera, Upload, X, Trash2, Image as ImageIcon, ChevronLeft, ChevronRight, Edit2, Save, FolderOpen, Play, Pause } from 'lucide-react';
-import PageHeader from '@/components/PageHeader';
+import {
+  Camera,
+  Upload,
+  X,
+  Trash2,
+  Image as ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  Edit2,
+  Save,
+  FolderOpen,
+  Play,
+  Pause,
+} from 'lucide-react';
+import { AppShell } from '@/components/AppShell';
 import AlbumManager from '@/components/AlbumManager';
+import { PageTitle } from '@/components/ui/PageTitle';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input, Textarea, Select, Field } from '@/components/ui/Input';
+import { EmptyState } from '@/components/ui/Feedback';
+import { Modal } from '@/components/ui/Modal';
+import { ConfirmModal } from '@/components/ui/Modal';
+import { cn } from '@/lib/utils';
 
 interface Photo {
   id: number;
@@ -46,19 +67,22 @@ export default function GalleryPage() {
   const [showStoryModal, setShowStoryModal] = useState(false);
   const [showAlbumManager, setShowAlbumManager] = useState(false);
   const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
-  const [storyForm, setStoryForm] = useState({ 
-    title: '', 
-    description: '', 
-    albumId: null as number | null 
+  const [storyForm, setStoryForm] = useState({
+    title: '',
+    description: '',
+    albumId: null as number | null,
   });
   const [isSlideshow, setIsSlideshow] = useState(false);
   const [slideshowSpeed, setSlideshowSpeed] = useState(3000); // 3 seconds default
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const slideshowIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchPhotos();
     fetchAlbums();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterAlbumId]);
 
   const fetchAlbums = async () => {
@@ -69,15 +93,16 @@ export default function GalleryPage() {
         setAlbums(data.albums);
       }
     } catch (error) {
-      console.error('Error fetching albums:', error);
+      // non-fatal: the album filter just stays empty
     }
   };
 
   const fetchPhotos = async () => {
-    const url = filterAlbumId === 'all' 
-      ? '/api/photos' 
-      : `/api/photos?albumId=${filterAlbumId}`;
-    
+    const url =
+      filterAlbumId === 'all'
+        ? '/api/photos'
+        : `/api/photos?albumId=${filterAlbumId}`;
+
     const response = await fetch(url);
     if (response.ok) {
       const data = await response.json();
@@ -91,19 +116,22 @@ export default function GalleryPage() {
 
     setIsUploading(true);
     setUploadProgress(0);
+    setUploadError(null);
     const newlyUploadedPhotos: Photo[] = [];
+    const failed: string[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const formData = new FormData();
       formData.append('file', file);
       formData.append('title', file.name.split('.')[0]);
-      
+
       // Use current filter or default to General album
-      const albumIdToUse = filterAlbumId === 'all' 
-        ? albums.find(a => a.name === 'General')?.id?.toString() || ''
-        : filterAlbumId;
-      
+      const albumIdToUse =
+        filterAlbumId === 'all'
+          ? albums.find((a) => a.name === 'General')?.id?.toString() || ''
+          : filterAlbumId;
+
       if (albumIdToUse) {
         formData.append('albumId', albumIdToUse);
       }
@@ -120,17 +148,19 @@ export default function GalleryPage() {
           setUploadProgress(((i + 1) / files.length) * 100);
         } else {
           const error = await response.json();
-          alert(`Failed to upload ${file.name}: ${error.error}`);
+          failed.push(`${file.name}: ${error.error}`);
         }
       } catch (error) {
-        console.error('Upload error:', error);
-        alert(`Failed to upload ${file.name}`);
+        failed.push(file.name);
       }
     }
 
     setIsUploading(false);
     setUploadProgress(0);
-    
+    if (failed.length) {
+      setUploadError(`Failed to upload — ${failed.join('; ')}`);
+    }
+
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -142,26 +172,25 @@ export default function GalleryPage() {
       setStoryForm({
         title: newlyUploadedPhotos[0].title || '',
         description: newlyUploadedPhotos[0].description || '',
-        albumId: newlyUploadedPhotos[0].albumId
+        albumId: newlyUploadedPhotos[0].albumId,
       });
       setShowStoryModal(true);
     }
-    
+
     fetchPhotos();
   };
 
   const handleDelete = async (photoId: number) => {
-    if (!confirm('Are you sure you want to delete this photo?')) return;
-
     const response = await fetch(`/api/photos?id=${photoId}`, {
       method: 'DELETE',
     });
 
+    setPendingDelete(null);
     if (response.ok) {
       setSelectedPhoto(null);
       fetchPhotos();
     } else {
-      alert('Failed to delete photo');
+      setUploadError('Failed to delete photo');
     }
   };
 
@@ -184,44 +213,49 @@ export default function GalleryPage() {
 
       if (response.ok) {
         // Move to next photo or close modal
-        const currentIndex = uploadedPhotos.findIndex(p => p.id === editingPhoto.id);
+        const currentIndex = uploadedPhotos.findIndex(
+          (p) => p.id === editingPhoto.id
+        );
         if (currentIndex < uploadedPhotos.length - 1) {
           const nextPhoto = uploadedPhotos[currentIndex + 1];
           setEditingPhoto(nextPhoto);
           setStoryForm({
             title: nextPhoto.title || '',
             description: nextPhoto.description || '',
-            albumId: nextPhoto.albumId
+            albumId: nextPhoto.albumId,
           });
         } else {
-          setShowStoryModal(false);
-          setUploadedPhotos([]);
-          setEditingPhoto(null);
+          closeStoryModal();
         }
         fetchPhotos();
       } else {
-        alert('Failed to save story');
+        setUploadError('Failed to save story');
       }
     } catch (error) {
-      console.error('Save error:', error);
-      alert('Failed to save story');
+      setUploadError('Failed to save story');
     }
   };
 
+  const closeStoryModal = () => {
+    setShowStoryModal(false);
+    setUploadedPhotos([]);
+    setEditingPhoto(null);
+  };
+
   const handleSkipStory = () => {
-    const currentIndex = uploadedPhotos.findIndex(p => p.id === editingPhoto?.id);
+    const currentIndex = uploadedPhotos.findIndex(
+      (p) => p.id === editingPhoto?.id
+    );
     if (currentIndex < uploadedPhotos.length - 1) {
       const nextPhoto = uploadedPhotos[currentIndex + 1];
       setEditingPhoto(nextPhoto);
       setStoryForm({
         title: nextPhoto.title || '',
         description: nextPhoto.description || '',
-        albumId: nextPhoto.albumId
+        albumId: nextPhoto.albumId,
       });
     } else {
-      setShowStoryModal(false);
-      setUploadedPhotos([]);
-      setEditingPhoto(null);
+      closeStoryModal();
     }
   };
 
@@ -231,57 +265,51 @@ export default function GalleryPage() {
     setStoryForm({
       title: selectedPhoto.title || '',
       description: selectedPhoto.description || '',
-      albumId: selectedPhoto.albumId
+      albumId: selectedPhoto.albumId,
     });
     setUploadedPhotos([selectedPhoto]);
     setSelectedPhoto(null);
     setShowStoryModal(true);
   };
 
-  const getUniqueAlbums = () => {
-    const albums = new Set(photos.map(p => p.album));
-    return Array.from(albums);
-  };
-
-  const getAlbumIcon = (album: string) => {
-    const icons: { [key: string]: string } = {
-      'general': '📷',
-      'culinary': '🍽️',
-      'travel': '✈️',
-      'memories': '💝',
-      'special': '⭐',
-    };
-    return icons[album] || '📸';
-  };
-
   const getAlbumLabel = (album: string) => {
     const labels: { [key: string]: string } = {
-      'general': 'General',
-      'culinary': 'Culinary Moments',
-      'travel': 'Travel',
-      'memories': 'Memories',
-      'special': 'Special Events',
+      general: 'General',
+      culinary: 'Culinary Moments',
+      travel: 'Travel',
+      memories: 'Memories',
+      special: 'Special Events',
     };
     return labels[album] || album.charAt(0).toUpperCase() + album.slice(1);
   };
 
   const navigatePhoto = (direction: 'prev' | 'next') => {
     if (!selectedPhoto) return;
-    const currentIndex = photos.findIndex(p => p.id === selectedPhoto.id);
-    const newIndex = direction === 'next' 
-      ? (currentIndex + 1) % photos.length
-      : (currentIndex - 1 + photos.length) % photos.length;
+    const currentIndex = photos.findIndex((p) => p.id === selectedPhoto.id);
+    const newIndex =
+      direction === 'next'
+        ? (currentIndex + 1) % photos.length
+        : (currentIndex - 1 + photos.length) % photos.length;
     setSelectedPhoto(photos[newIndex]);
   };
 
   const startSlideshow = () => {
     if (photos.length === 0) return;
-    
+
+    // An auto-advancing slideshow is exactly the motion this opts out of.
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      if (!selectedPhoto) setSelectedPhoto(photos[0]);
+      return; // open the lightbox, but let the user step through manually
+    }
+
     // Start from first photo if none selected, or continue from current
     if (!selectedPhoto) {
       setSelectedPhoto(photos[0]);
     }
-    
+
     setIsSlideshow(true);
   };
 
@@ -306,412 +334,441 @@ export default function GalleryPage() {
         }
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSlideshow, selectedPhoto, photos, slideshowSpeed]);
 
-  // Stop slideshow when modal closes
+  // Stop slideshow when the lightbox closes
   useEffect(() => {
     if (!selectedPhoto) {
       stopSlideshow();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPhoto]);
 
+  // Arrow-key navigation while the lightbox is open
+  useEffect(() => {
+    if (!selectedPhoto) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') navigatePhoto('next');
+      if (e.key === 'ArrowLeft') navigatePhoto('prev');
+      if (e.key === 'Escape') setSelectedPhoto(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPhoto, photos]);
+
   return (
-    <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-love-ice via-white to-love-lavender dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <PageHeader title="Photo Gallery" />
-        </div>
-
-        {/* Action Bar */}
-        <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-          {/* Album Filter */}
-          <div className="flex gap-2 flex-wrap items-center">
-            <button
-              onClick={() => setFilterAlbumId('all')}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
-                filterAlbumId === 'all'
-                  ? 'bg-teal-600 text-white shadow-md'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-            >
-              📸 All Photos
-            </button>
-            {albums.map(album => (
-              <button
-                key={album.id}
-                onClick={() => setFilterAlbumId(album.id.toString())}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  filterAlbumId === album.id.toString()
-                    ? 'bg-teal-600 text-white shadow-md'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                {getAlbumIcon(album.name.toLowerCase())} {album.name} ({album.photoCount})
-              </button>
-            ))}
-            <button
-              onClick={() => setShowAlbumManager(true)}
-              className="px-4 py-2 rounded-lg font-medium transition bg-white dark:bg-gray-800 text-teal-600 dark:text-teal-400 border-2 border-teal-600 dark:border-teal-400 hover:bg-teal-50 dark:hover:bg-gray-700 flex items-center gap-2"
-            >
-              <FolderOpen size={18} />
-              Manage Albums
-            </button>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <button
+    <AppShell>
+      <PageTitle
+        title="Photo Gallery"
+        description="Every moment worth keeping."
+        action={
+          <>
+            <Button
+              variant="secondary"
               onClick={startSlideshow}
               disabled={photos.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               title="Start slideshow"
             >
-              <Play size={20} />
-              Slideshow
-            </button>
+              <Play className="h-4 w-4" />
+              <span className="hidden sm:inline">Slideshow</span>
+            </Button>
+            <Button onClick={() => fileInputRef.current?.click()}>
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">Upload</span>
+            </Button>
+          </>
+        }
+      />
+
+      {/* Album filter */}
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <Button
+          variant={filterAlbumId === 'all' ? 'primary' : 'secondary'}
+          size="sm"
+          className="h-10 sm:h-8"
+          onClick={() => setFilterAlbumId('all')}
+        >
+          All photos
+        </Button>
+        {albums.map((album) => (
+          <Button
+            key={album.id}
+            variant={
+              filterAlbumId === album.id.toString() ? 'primary' : 'secondary'
+            }
+            size="sm"
+            className="h-10 sm:h-8"
+            onClick={() => setFilterAlbumId(album.id.toString())}
+          >
+            {album.name} ({album.photoCount})
+          </Button>
+        ))}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-10 sm:h-8"
+          onClick={() => setShowAlbumManager(true)}
+        >
+          <FolderOpen className="h-4 w-4" />
+          Manage albums
+        </Button>
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
+      {/* Upload progress */}
+      {isUploading && (
+        <Card className="mb-6 p-4">
+          <div className="mb-2 flex items-center gap-3">
+            <Upload className="h-5 w-5 animate-pulse text-brand-500" />
+            <span className="text-sm text-fg">Uploading photos…</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2">
+            <div
+              className="h-2 rounded-full bg-brand-gradient transition-all duration-300"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        </Card>
+      )}
+
+      {uploadError && (
+        <Card className="mb-6 border-red-200 p-4 text-sm text-red-700 dark:border-red-900/50 dark:text-red-300">
+          <div className="flex items-start justify-between gap-3">
+            <span className="break-words">{uploadError}</span>
             <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition shadow-md"
+              onClick={() => setUploadError(null)}
+              className="shrink-0 text-muted hover:text-fg"
+              aria-label="Dismiss"
             >
-              <Upload size={20} />
-              Upload Photos
+              <X className="h-4 w-4" />
             </button>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-        </div>
+        </Card>
+      )}
 
-        {/* Upload Progress */}
-        {isUploading && (
-          <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-2">
-              <Upload size={20} className="text-blue-500 animate-pulse" />
-              <span className="text-gray-700 dark:text-gray-300">Uploading photos...</span>
+      {/* Photo grid */}
+      {photos.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={Camera}
+            title="No photos yet"
+            description="Upload your first photo to start building the gallery."
+            action={
+              <Button onClick={() => fileInputRef.current?.click()}>
+                <Upload className="h-4 w-4" />
+                Upload your first photo
+              </Button>
+            }
+          />
+        </Card>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {photos.map((photo) => (
+            <button
+              key={photo.id}
+              onClick={() => setSelectedPhoto(photo)}
+              className={cn(
+                'group relative aspect-square overflow-hidden rounded-2xl border border-default bg-surface-2 shadow-soft transition-all duration-200',
+                'hover:-translate-y-0.5 hover:shadow-card',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50'
+              )}
+            >
+              <Image
+                src={photo.filePath}
+                alt={photo.title || 'Photo'}
+                fill
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+              />
+              <span className="absolute left-2 top-2 z-10 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur-sm">
+                {getAlbumLabel(photo.album)}
+              </span>
+              <span className="absolute inset-0 grid place-items-center bg-black/0 transition-all duration-300 group-hover:bg-black/40">
+                <ImageIcon className="h-8 w-8 text-white opacity-0 transition-opacity group-hover:opacity-100" />
+              </span>
+              {photo.title && (
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-left opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="block truncate text-sm font-medium text-white">
+                    {photo.title}
+                  </span>
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {selectedPhoto && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedPhoto(null);
+            }}
+            className="absolute right-4 top-4 z-20 grid h-11 w-11 place-items-center rounded-full bg-surface text-fg shadow-pop transition hover:bg-surface-2"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {/* Slideshow controls */}
+          {photos.length > 1 && (
+            <div
+              className="absolute right-4 top-20 z-20 flex flex-col gap-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <select
+                value={slideshowSpeed}
+                onChange={(e) => setSlideshowSpeed(Number(e.target.value))}
+                className="h-11 cursor-pointer rounded-xl border border-default bg-surface px-3 text-sm text-fg shadow-pop"
+                aria-label="Slideshow speed"
+              >
+                <option value="2000">Fast (2s)</option>
+                <option value="3000">Normal (3s)</option>
+                <option value="5000">Slow (5s)</option>
+              </select>
+
+              {isSlideshow ? (
+                <Button variant="secondary" onClick={stopSlideshow}>
+                  <Pause className="h-4 w-4" />
+                  Pause
+                </Button>
+              ) : (
+                <Button onClick={startSlideshow}>
+                  <Play className="h-4 w-4" />
+                  Play
+                </Button>
+              )}
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${uploadProgress}%` }}
+          )}
+
+          {/* Navigation */}
+          {photos.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigatePhoto('prev');
+                }}
+                className="absolute left-4 top-1/2 z-20 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-surface text-fg shadow-pop transition hover:bg-surface-2"
+                aria-label="Previous photo"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigatePhoto('next');
+                }}
+                className="absolute right-4 top-1/2 z-20 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-surface text-fg shadow-pop transition hover:bg-surface-2"
+                aria-label="Next photo"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+
+              <div className="absolute left-4 top-4 z-20 rounded-lg bg-black/60 px-3 py-2">
+                <span className="text-sm font-medium text-white">
+                  {photos.findIndex((p) => p.id === selectedPhoto.id) + 1} /{' '}
+                  {photos.length}
+                </span>
+              </div>
+            </>
+          )}
+
+          <div
+            className="flex h-full w-full max-w-6xl flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative flex flex-1 items-center justify-center">
+              <Image
+                src={selectedPhoto.filePath}
+                alt={selectedPhoto.title || 'Photo'}
+                fill
+                className="object-contain"
+                sizes="100vw"
+                priority
               />
             </div>
-          </div>
-        )}
 
-        {/* Photos Grid */}
-        {photos.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center border border-gray-100 dark:border-gray-700">
-            <Camera className="mx-auto text-gray-300 dark:text-gray-600 mb-4" size={64} />
-            <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-100 mb-2">
-              No Photos Yet
-            </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
-              Upload your first photo to start building your gallery!
-            </p>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition shadow-md"
-            >
-              <Upload size={20} />
-              Upload Your First Photo
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {photos.map((photo) => (
-              <div
-                key={photo.id}
-                onClick={() => setSelectedPhoto(photo)}
-                className="relative aspect-square bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden cursor-pointer group card-hover"
-              >
-                <Image
-                  src={photo.filePath}
-                  alt={photo.title || 'Photo'}
-                  fill
-                  className="object-cover transition-transform duration-300 group-hover:scale-110"
-                  sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                />
-                {/* Album Badge */}
-                <div className="absolute top-2 left-2 z-10">
-                  <span className="px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-xs rounded-full flex items-center gap-1">
-                    {getAlbumIcon(photo.album)}
-                    <span className="hidden sm:inline">{getAlbumLabel(photo.album)}</span>
-                  </span>
-                </div>
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
-                  <ImageIcon className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={32} />
-                </div>
-                {photo.title && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-white text-sm font-medium truncate">{photo.title}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Lightbox */}
-        {selectedPhoto && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center p-4"
-            onClick={() => setSelectedPhoto(null)}
-          >
-            <button
-              onClick={(e) => { e.stopPropagation(); setSelectedPhoto(null); }}
-              className="absolute top-4 right-4 p-2 bg-white dark:bg-gray-800 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition z-10"
-            >
-              <X size={24} className="text-gray-700 dark:text-gray-300" />
-            </button>
-
-            {/* Slideshow Controls */}
-            {photos.length > 1 && (
-              <div className="absolute top-20 right-4 flex flex-col gap-2 z-10">
-                {/* Speed Selector */}
-                <select
-                  value={slideshowSpeed}
-                  onChange={(e) => { e.stopPropagation(); setSlideshowSpeed(Number(e.target.value)); }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
-                >
-                  <option value="2000">Fast (2s)</option>
-                  <option value="3000">Normal (3s)</option>
-                  <option value="5000">Slow (5s)</option>
-                </select>
-                
-                {/* Play/Pause Button */}
-                {isSlideshow ? (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); stopSlideshow(); }}
-                    className="px-4 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2"
-                  >
-                    <Pause size={18} className="text-gray-700 dark:text-gray-300" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Pause</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); startSlideshow(); }}
-                    className="px-4 py-2 bg-purple-600 rounded-lg shadow-lg hover:bg-purple-700 transition flex items-center gap-2"
-                  >
-                    <Play size={18} className="text-white" />
-                    <span className="text-sm text-white">Play</span>
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Navigation Arrows */}
-            {photos.length > 1 && (
-              <>
-                <button
-                  onClick={(e) => { e.stopPropagation(); navigatePhoto('prev'); }}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white dark:bg-gray-800 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition z-10"
-                >
-                  <ChevronLeft size={24} className="text-gray-700 dark:text-gray-300" />
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); navigatePhoto('next'); }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white dark:bg-gray-800 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition z-10"
-                >
-                  <ChevronRight size={24} className="text-gray-700 dark:text-gray-300" />
-                </button>
-                
-                {/* Slideshow Progress Indicator */}
-                <div className="absolute top-4 left-4 px-3 py-2 bg-black bg-opacity-60 rounded-lg z-10">
-                  <span className="text-white text-sm font-medium">
-                    {photos.findIndex(p => p.id === selectedPhoto.id) + 1} / {photos.length}
-                  </span>
-                </div>
-              </>
-            )}
-
-            <div className="max-w-6xl w-full h-full flex flex-col" onClick={(e) => e.stopPropagation()}>
-              <div className="flex-1 relative flex items-center justify-center">
-                <Image
-                  src={selectedPhoto.filePath}
-                  alt={selectedPhoto.title || 'Photo'}
-                  fill
-                  className="object-contain"
-                  sizes="100vw"
-                  priority
-                />
-              </div>
-
-              {/* Photo Info */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 mt-4">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    {selectedPhoto.title && (
-                      <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
-                        {selectedPhoto.title}
-                      </h3>
-                    )}
-                    {selectedPhoto.description && (
-                      <p className="text-gray-600 dark:text-gray-400 mb-2">
-                        {selectedPhoto.description}
-                      </p>
-                    )}
-                    <div className="flex gap-4 text-sm text-gray-500 dark:text-gray-400">
-                      <span className="capitalize">📁 {selectedPhoto.album}</span>
-                      <span>📅 {new Date(selectedPhoto.uploadedAt).toLocaleDateString()}</span>
-                      <span>📊 {(selectedPhoto.fileSize / 1024 / 1024).toFixed(2)} MB</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleEditFromLightbox}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
-                    >
-                      <Edit2 size={16} />
-                      Edit Photo
-                    </button>
-                    <button
-                      onClick={() => handleDelete(selectedPhoto.id)}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
-                    >
-                      <Trash2 size={16} />
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Add Story Modal */}
-        {showStoryModal && editingPhoto && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                    {uploadedPhotos.length > 1 ? 'Add Story to Photos' : 'Edit Photo'}
-                  </h2>
-                  <button
-                    onClick={() => {
-                      setShowStoryModal(false);
-                      setUploadedPhotos([]);
-                      setEditingPhoto(null);
-                    }}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition"
-                  >
-                    <X size={24} className="text-gray-500 dark:text-gray-400" />
-                  </button>
-                </div>
-
-                {/* Photo Preview */}
-                <div className="relative w-full h-64 mb-6 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700">
-                  <Image
-                    src={editingPhoto.filePath}
-                    alt={editingPhoto.title || 'Photo'}
-                    fill
-                    className="object-contain"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                  />
-                </div>
-
-                {/* Progress Indicator */}
-                {uploadedPhotos.length > 1 && (
-                  <div className="mb-4 text-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Photo {uploadedPhotos.findIndex(p => p.id === editingPhoto.id) + 1} of {uploadedPhotos.length}
+            {/* Photo info */}
+            <Card className="mt-4 max-h-[40vh] shrink-0 overflow-y-auto scrollbar-thin p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  {selectedPhoto.title && (
+                    <h3 className="mb-2 break-words text-lg font-bold text-fg">
+                      {selectedPhoto.title}
+                    </h3>
+                  )}
+                  {selectedPhoto.description && (
+                    <p className="mb-2 break-words text-sm text-muted">
+                      {selectedPhoto.description}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                    <span className="capitalize">{selectedPhoto.album}</span>
+                    <span>
+                      {new Date(
+                        selectedPhoto.uploadedAt
+                      ).toLocaleDateString()}
+                    </span>
+                    <span>
+                      {(selectedPhoto.fileSize / 1024 / 1024).toFixed(2)} MB
                     </span>
                   </div>
-                )}
-
-                {/* Form */}
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Title
-                    </label>
-                    <input
-                      type="text"
-                      value={storyForm.title}
-                      onChange={(e) => setStoryForm({ ...storyForm, title: e.target.value })}
-                      placeholder="Give your photo a title..."
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Story / Description
-                    </label>
-                    <textarea
-                      value={storyForm.description}
-                      onChange={(e) => setStoryForm({ ...storyForm, description: e.target.value })}
-                      placeholder="Tell the story behind this photo..."
-                      rows={4}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Album
-                    </label>
-                    <select
-                      value={storyForm.albumId || ''}
-                      onChange={(e) => setStoryForm({ ...storyForm, albumId: e.target.value ? parseInt(e.target.value) : null })}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                    >
-                      <option value="">Select an album...</option>
-                      {albums.map(album => (
-                        <option key={album.id} value={album.id}>
-                          {getAlbumIcon(album.name.toLowerCase())} {album.name} ({album.photoCount} photos)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                 </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-between mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={handleSkipStory}
-                    className="px-6 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition"
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Button variant="secondary" onClick={handleEditFromLightbox}>
+                    <Edit2 className="h-4 w-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={() => setPendingDelete(selectedPhoto.id)}
                   >
-                    Skip
-                  </button>
-                  <button
-                    onClick={handleSaveStory}
-                    className="flex items-center gap-2 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition shadow-md"
-                  >
-                    <Save size={16} />
-                    {uploadedPhotos.findIndex(p => p.id === editingPhoto.id) < uploadedPhotos.length - 1 ? 'Save & Next' : 'Save & Finish'}
-                  </button>
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Album Manager Modal */}
-        <AlbumManager
-          isOpen={showAlbumManager}
-          onClose={() => setShowAlbumManager(false)}
-          onAlbumCreated={() => {
-            fetchAlbums();
-            fetchPhotos();
-          }}
-          onAlbumUpdated={() => {
-            fetchAlbums();
-            fetchPhotos();
-          }}
-          onAlbumDeleted={() => {
-            fetchAlbums();
-            fetchPhotos();
-            setFilterAlbumId('all');
-          }}
-        />
-      </div>
-    </div>
+      {/* Add story modal */}
+      <Modal
+        open={showStoryModal && !!editingPhoto}
+        onClose={closeStoryModal}
+        size="lg"
+        title={uploadedPhotos.length > 1 ? 'Add story to photos' : 'Edit photo'}
+        description={
+          uploadedPhotos.length > 1 && editingPhoto
+            ? `Photo ${
+                uploadedPhotos.findIndex((p) => p.id === editingPhoto.id) + 1
+              } of ${uploadedPhotos.length}`
+            : undefined
+        }
+        footer={
+          <>
+            <Button variant="ghost" onClick={handleSkipStory}>
+              Skip
+            </Button>
+            <Button onClick={handleSaveStory}>
+              <Save className="h-4 w-4" />
+              {editingPhoto &&
+              uploadedPhotos.findIndex((p) => p.id === editingPhoto.id) <
+                uploadedPhotos.length - 1
+                ? 'Save & next'
+                : 'Save & finish'}
+            </Button>
+          </>
+        }
+      >
+        {editingPhoto && (
+          <>
+            <div className="relative mb-6 h-56 w-full overflow-hidden rounded-xl border border-default bg-surface-2 sm:h-64">
+              <Image
+                src={editingPhoto.filePath}
+                alt={editingPhoto.title || 'Photo'}
+                fill
+                className="object-contain"
+                sizes="(max-width: 768px) 100vw, 50vw"
+              />
+            </div>
+
+            <div className="space-y-4">
+              <Field label="Title" htmlFor="ph-title">
+                <Input
+                  id="ph-title"
+                  type="text"
+                  value={storyForm.title}
+                  onChange={(e) =>
+                    setStoryForm({ ...storyForm, title: e.target.value })
+                  }
+                  placeholder="Give your photo a title…"
+                />
+              </Field>
+
+              <Field label="Story / description" htmlFor="ph-desc">
+                <Textarea
+                  id="ph-desc"
+                  value={storyForm.description}
+                  onChange={(e) =>
+                    setStoryForm({ ...storyForm, description: e.target.value })
+                  }
+                  placeholder="Tell the story behind this photo…"
+                  rows={4}
+                />
+              </Field>
+
+              <Field label="Album" htmlFor="ph-album">
+                <Select
+                  id="ph-album"
+                  value={storyForm.albumId || ''}
+                  onChange={(e) =>
+                    setStoryForm({
+                      ...storyForm,
+                      albumId: e.target.value
+                        ? parseInt(e.target.value)
+                        : null,
+                    })
+                  }
+                >
+                  <option value="">Select an album…</option>
+                  {albums.map((album) => (
+                    <option key={album.id} value={album.id}>
+                      {album.name} ({album.photoCount} photos)
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <ConfirmModal
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => pendingDelete !== null && handleDelete(pendingDelete)}
+        title="Delete this photo?"
+        description="This cannot be undone."
+        confirmText="Delete"
+        danger
+      />
+
+      {/* Album manager modal */}
+      <AlbumManager
+        isOpen={showAlbumManager}
+        onClose={() => setShowAlbumManager(false)}
+        onAlbumCreated={() => {
+          fetchAlbums();
+          fetchPhotos();
+        }}
+        onAlbumUpdated={() => {
+          fetchAlbums();
+          fetchPhotos();
+        }}
+        onAlbumDeleted={() => {
+          fetchAlbums();
+          fetchPhotos();
+          setFilterAlbumId('all');
+        }}
+      />
+    </AppShell>
   );
 }

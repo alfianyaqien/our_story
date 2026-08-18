@@ -19,7 +19,7 @@ export default function Icon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #87CEEB 0%, #4A90E2 100%)',
+          background: 'linear-gradient(135deg, #95dccd 0%, #32b49f 100%)',
           borderRadius: '50%',
         }}
       >

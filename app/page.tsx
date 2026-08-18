@@ -2,8 +2,12 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogoWithText } from '../components/Logo';
-import ThemeToggle from '@/components/ThemeToggle';
+import Link from 'next/link';
+import { Mail, Lock } from 'lucide-react';
+import { AuthShell } from '@/components/AuthShell';
+import { Button } from '@/components/ui/Button';
+import { Input, Field } from '@/components/ui/Input';
+import { Alert } from '@/components/ui/Feedback';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -41,88 +45,74 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-love-ice via-white to-love-lavender dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Theme Toggle */}
-      <div className="fixed top-4 right-4 z-50">
-        <ThemeToggle />
-      </div>
+    <AuthShell>
+      <h2 className="text-2xl font-bold tracking-tight text-fg">Welcome back</h2>
+      <p className="mt-1.5 text-sm text-muted">
+        Log in to your shared space.
+      </p>
 
-      <div className="max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <LogoWithText size="large" showTagline={true} />
+      <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+        {error && <Alert variant="error">{error}</Alert>}
+
+        <Field label="Username or email" htmlFor="username">
+          <div className="relative">
+            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input
+              id="username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="pl-10"
+              placeholder="you@example.com"
+              required
+            />
           </div>
-          <p className="text-gray-600 dark:text-gray-300">Welcome to our special place</p>
-        </div>
+        </Field>
 
-        {/* Login Form */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Username or Email
-              </label>
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-love-ocean dark:focus:ring-love-sky focus:border-transparent outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                placeholder="Enter your username or email"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-love-ocean dark:focus:ring-love-sky focus:border-transparent outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                placeholder="Enter your password"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-love-sky via-love-ocean to-love-navy text-white font-semibold py-3 rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100"
-            >
-              {isLoading ? 'Logging in...' : 'Login'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center space-y-3">
-            <a
-              href="/auth/forgot-password"
-              className="text-sm text-love-ocean dark:text-love-sky hover:underline block"
-            >
-              Forgot password?
-            </a>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Don't have an account?{' '}
-              <a
-                href="/auth/signup"
-                className="text-love-ocean dark:text-love-sky font-semibold hover:underline"
-              >
-                Sign up
-              </a>
-            </div>
+        <Field label="Password" htmlFor="password">
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="pl-10"
+              placeholder="••••••••"
+              required
+            />
           </div>
-        </div>
+        </Field>
+
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          loading={isLoading}
+        >
+          {isLoading ? 'Logging in…' : 'Log in'}
+        </Button>
+      </form>
+
+      <div className="mt-6 space-y-3 text-center">
+        <Link
+          href="/auth/forgot-password"
+          className="block text-sm text-brand-600 hover:underline dark:text-brand-400"
+        >
+          Forgot password?
+        </Link>
+        <p className="text-sm text-muted">
+          Don&apos;t have an account?{' '}
+          <Link
+            href="/auth/signup"
+            className="font-semibold text-brand-600 hover:underline dark:text-brand-400"
+          >
+            Sign up
+          </Link>
+        </p>
       </div>
-    </div>
+    </AuthShell>
   );
 }

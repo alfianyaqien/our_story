@@ -6,7 +6,11 @@ import { ThemeProvider } from '@/components/ThemeProvider'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Our Story',
+  // Per-route layouts supply the page name; this stamps the suffix.
+  title: {
+    default: 'Our Story',
+    template: '%s · Our Story',
+  },
   description: 'A special place for our love story',
   manifest: '/manifest.json',
   icons: {
@@ -22,8 +26,27 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#4A90E2',
+  themeColor: '#0c8b7c',
 }
+
+/**
+ * Applies the persisted theme before first paint.
+ *
+ * ThemeProvider can only touch the DOM in an effect, which runs after the
+ * browser has already painted - so a dark-mode user saw a white flash on
+ * every navigation. This runs synchronously in <head>, ahead of any paint.
+ */
+const themeScript = `
+(function() {
+  try {
+    var stored = localStorage.getItem('theme');
+    var dark = stored
+      ? stored === 'dark'
+      : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (dark) document.documentElement.classList.add('dark');
+  } catch (e) {}
+})();
+`
 
 export default function RootLayout({
   children,
@@ -32,7 +55,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className={inter.className}>
+        <a href="#main" className="skip-link">
+          Skip to content
+        </a>
         <ThemeProvider>
           {children}
         </ThemeProvider>

@@ -1,3 +1,4 @@
+'use client';
 import React from 'react';
 
 // Complex, modern logo with flowing waves inspired by the Green Wave design
@@ -10,6 +11,12 @@ export default function Logo({
   className?: string,
   variant?: 'full' | 'simple' | 'minimal'
 }) {
+  // SVG gradient ids must be unique per instance: two logos on one page
+  // (e.g. the auth shell's desktop panel + mobile lockup) would otherwise
+  // both define the same id, and url(#id) resolves to the first match in
+  // document order - which may sit inside a display:none subtree and paint
+  // nothing.
+  const uid = React.useId().replace(/:/g, '');
   const sizeClasses = {
     small: 'w-10 h-10',
     default: 'w-16 h-16',
@@ -22,12 +29,12 @@ export default function Logo({
       <div className={`${sizeClasses[size]} ${className}`}>
         <svg viewBox="0 0 200 200" className="w-full h-full">
           <defs>
-            <linearGradient id="minimalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#87CEEB" />
-              <stop offset="100%" stopColor="#2C5AA0" />
+            <linearGradient id={`minimalGrad-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#95dccd" />
+              <stop offset="100%" stopColor="#0c8b7c" />
             </linearGradient>
           </defs>
-          <circle cx="100" cy="100" r="95" fill="url(#minimalGrad)" />
+          <circle cx="100" cy="100" r="95" fill={`url(#minimalGrad-${uid})`} />
           <path
             d="M 100 65 C 85 65, 75 75, 75 90 C 75 110, 100 135, 100 135 C 100 135, 125 110, 125 90 C 125 75, 115 65, 100 65 Z"
             fill="white"
@@ -43,13 +50,13 @@ export default function Logo({
       <div className={`${sizeClasses[size]} ${className}`}>
         <svg viewBox="0 0 200 200" className="w-full h-full">
           <defs>
-            <linearGradient id="simpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#87CEEB" />
-              <stop offset="50%" stopColor="#4A90E2" />
-              <stop offset="100%" stopColor="#2C5AA0" />
+            <linearGradient id={`simpleGrad-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#95dccd" />
+              <stop offset="50%" stopColor="#32b49f" />
+              <stop offset="100%" stopColor="#0c8b7c" />
             </linearGradient>
           </defs>
-          <circle cx="100" cy="100" r="95" fill="url(#simpleGrad)" />
+          <circle cx="100" cy="100" r="95" fill={`url(#simpleGrad-${uid})`} />
           <path
             d="M 100 65 C 85 65, 75 75, 75 90 C 75 110, 100 135, 100 135 C 100 135, 125 110, 125 90 C 125 75, 115 65, 100 65 Z"
             fill="white"
@@ -66,53 +73,53 @@ export default function Logo({
       <svg viewBox="0 0 200 200" className="w-full h-full" style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }}>
         <defs>
           {/* Primary blue gradient */}
-          <linearGradient id="blueGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#B8E6F7" />
-            <stop offset="50%" stopColor="#87CEEB" />
-            <stop offset="100%" stopColor="#6BB6D6" />
+          <linearGradient id={`blueGrad1-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#c7ece5" />
+            <stop offset="50%" stopColor="#95dccd" />
+            <stop offset="100%" stopColor="#5cc8b4" />
           </linearGradient>
 
-          <linearGradient id="blueGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#87CEEB" />
-            <stop offset="50%" stopColor="#4A90E2" />
-            <stop offset="100%" stopColor="#3A7BC8" />
+          <linearGradient id={`blueGrad2-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#95dccd" />
+            <stop offset="50%" stopColor="#32b49f" />
+            <stop offset="100%" stopColor="#15a18b" />
           </linearGradient>
 
-          <linearGradient id="blueGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#4A90E2" />
-            <stop offset="50%" stopColor="#2C5AA0" />
-            <stop offset="100%" stopColor="#1E4D7B" />
+          <linearGradient id={`blueGrad3-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#32b49f" />
+            <stop offset="50%" stopColor="#0c8b7c" />
+            <stop offset="100%" stopColor="#0b7064" />
           </linearGradient>
 
           {/* Radial gradient for glow */}
-          <radialGradient id="glowGrad">
-            <stop offset="0%" stopColor="#E6F2FF" stopOpacity="0.6" />
-            <stop offset="70%" stopColor="#87CEEB" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#4A90E2" stopOpacity="0" />
+          <radialGradient id={`glowGrad-${uid}`}>
+            <stop offset="0%" stopColor="#e8f7f4" stopOpacity="0.6" />
+            <stop offset="70%" stopColor="#95dccd" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#32b49f" stopOpacity="0" />
           </radialGradient>
         </defs>
 
         {/* Background glow effect */}
-        <circle cx="100" cy="100" r="98" fill="url(#glowGrad)" />
+        <circle cx="100" cy="100" r="98" fill={`url(#glowGrad-${uid})`} />
 
         {/* Outer flowing wave - inspired by Green Wave Solutions */}
         <path
           d="M 35 100 Q 50 50, 85 60 Q 115 68, 135 45 Q 150 55, 155 85 Q 160 115, 145 140 Q 125 160, 100 155 Q 75 150, 55 165 Q 40 150, 35 125 Q 30 108, 35 100 Z"
-          fill="url(#blueGrad1)"
+          fill={`url(#blueGrad1-${uid})`}
           opacity="0.75"
         />
 
         {/* Middle flowing wave */}
         <path
           d="M 45 102 Q 60 65, 90 72 Q 115 78, 145 58 Q 152 75, 150 100 Q 148 125, 130 140 Q 112 152, 100 148 Q 88 144, 70 153 Q 55 143, 48 120 Q 43 108, 45 102 Z"
-          fill="url(#blueGrad2)"
+          fill={`url(#blueGrad2-${uid})`}
           opacity="0.85"
         />
 
         {/* Inner wave with heart integration */}
         <path
           d="M 60 98 Q 72 78, 88 82 Q 100 85, 112 82 Q 128 78, 140 98 Q 143 112, 137 125 Q 127 140, 112 136 Q 100 133, 88 136 Q 73 140, 63 125 Q 57 112, 60 98 Z"
-          fill="url(#blueGrad3)"
+          fill={`url(#blueGrad3-${uid})`}
         />
 
         {/* Central heart element - white for contrast */}
@@ -199,11 +206,11 @@ export function LogoWithText({
     <div className="flex items-center gap-4">
       <Logo size={size} variant={variant} />
       <div className="flex flex-col">
-        <h1 className={`${textSizes[size]} font-bold bg-gradient-to-r from-love-sky via-love-ocean to-love-navy bg-clip-text text-transparent leading-tight`}>
+        <h1 className={`${textSizes[size]} font-bold bg-gradient-to-r from-brand-400 via-brand-500 to-brand-700 bg-clip-text text-transparent leading-tight`}>
           Our Story
         </h1>
         {showTagline && (
-          <p className={`${taglineSizes[size]} text-love-ocean italic mt-1 font-medium`}>
+          <p className={`${taglineSizes[size]} text-brand-600 dark:text-brand-400 italic mt-1 font-medium`}>
             Love, written together
           </p>
         )}
@@ -214,19 +221,20 @@ export function LogoWithText({
 
 // Brand mark - just the symbol for favicons, app icons
 export function BrandMark({ className = '' }: { className?: string }) {
+  const uid = React.useId().replace(/:/g, '');
   return (
     <div className={`w-full h-full ${className}`}>
       <svg viewBox="0 0 200 200" className="w-full h-full">
         <defs>
-          <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#87CEEB" />
-            <stop offset="50%" stopColor="#4A90E2" />
-            <stop offset="100%" stopColor="#2C5AA0" />
+          <linearGradient id={`brandGrad-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#95dccd" />
+            <stop offset="50%" stopColor="#32b49f" />
+            <stop offset="100%" stopColor="#0c8b7c" />
           </linearGradient>
         </defs>
         
         {/* Simplified brand mark */}
-        <circle cx="100" cy="100" r="95" fill="url(#brandGrad)" />
+        <circle cx="100" cy="100" r="95" fill={`url(#brandGrad-${uid})`} />
         
         {/* Heart symbol */}
         <path

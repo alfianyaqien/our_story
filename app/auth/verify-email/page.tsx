@@ -2,12 +2,16 @@
 
 import { useEffect, useState, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { LogoWithText } from '@/components/Logo';
-import ThemeToggle from '@/components/ThemeToggle';
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { AuthShell } from '@/components/AuthShell';
+import { Button } from '@/components/ui/Button';
+import { Alert, PageLoader, Spinner } from '@/components/ui/Feedback';
 
 function VerifyEmailContent() {
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>(
+    'loading'
+  );
   const [message, setMessage] = useState('');
   const searchParams = useSearchParams();
   const hasVerified = useRef(false);
@@ -17,148 +21,124 @@ function VerifyEmailContent() {
 
     if (!token) {
       setStatus('error');
-      setMessage('Invalid verification link. Please check your email for the correct link.');
+      setMessage(
+        'Invalid verification link. Please check your email for the correct link.'
+      );
       return;
     }
 
     // Prevent double verification (React 18 StrictMode calls useEffect twice in development)
     if (hasVerified.current) {
-      console.log('⏭️ Already verified, skipping duplicate call');
       return;
     }
 
     // Verify the email
     const verifyEmail = async () => {
       hasVerified.current = true;
-      
+
       try {
-        console.log('🔍 Calling verification API...');
-        const response = await fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`);
+        const response = await fetch(
+          `/api/auth/verify-email?token=${encodeURIComponent(token)}`
+        );
         const data = await response.json();
 
-        console.log('📊 API Response:', { status: response.status, data });
-
         if (response.ok) {
-          console.log('✅ Verification successful!');
           setStatus('success');
-          setMessage(data.message || 'Your email has been verified successfully!');
+          setMessage(
+            data.message || 'Your email has been verified successfully!'
+          );
         } else {
-          console.log('❌ Verification failed:', data.error);
           setStatus('error');
-          setMessage(data.error || 'Verification failed. The link may have expired.');
+          setMessage(
+            data.error || 'Verification failed. The link may have expired.'
+          );
         }
       } catch (err) {
-        console.error('❌ Verification error:', err);
         setStatus('error');
-        setMessage('An error occurred during verification. Please try again.');
+        setMessage(
+          'An error occurred during verification. Please try again.'
+        );
       }
     };
 
     verifyEmail();
   }, [searchParams]);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-love-ice via-white to-love-lavender dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Theme Toggle */}
-      <div className="fixed top-4 right-4 z-50">
-        <ThemeToggle />
+  if (status === 'loading') {
+    return (
+      <div className="flex flex-col items-center gap-4 py-10 text-center">
+        <Spinner className="h-8 w-8" />
+        <div>
+          <h2 className="text-xl font-semibold text-fg">
+            Verifying your email…
+          </h2>
+          <p className="mt-1 text-sm text-muted">This only takes a moment.</p>
+        </div>
       </div>
+    );
+  }
 
-      <div className="max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <LogoWithText size="large" showTagline={true} />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Email Verification</h2>
-        </div>
+  const isSuccess = status === 'success';
 
-        {/* Verification Status */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-          <div className="text-center">
-            {status === 'loading' && (
-              <div>
-                <Loader2 className="w-16 h-16 mx-auto mb-4 text-love-ocean dark:text-love-sky animate-spin" />
-                <p className="text-gray-700 dark:text-gray-300 text-lg">Verifying your email...</p>
-              </div>
-            )}
-
-            {status === 'success' && (
-              <div>
-                <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-2">
-                  Email Verified!
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">{message}</p>
-                <div className="space-y-3">
-                  <a
-                    href="/"
-                    className="block w-full bg-gradient-to-r from-love-sky via-love-ocean to-love-navy text-white font-semibold py-3 rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all"
-                  >
-                    Continue to Login
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {status === 'error' && (
-              <div>
-                <XCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-2">
-                  Verification Failed
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">{message}</p>
-                <div className="space-y-3">
-                  {message.includes('already been verified') || message.includes('already been used') ? (
-                    <a
-                      href="/"
-                      className="block w-full bg-gradient-to-r from-love-sky via-love-ocean to-love-navy text-white font-semibold py-3 rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all"
-                    >
-                      Go to Login
-                    </a>
-                  ) : (
-                    <>
-                      <a
-                        href="/auth/signup"
-                        className="block w-full bg-gradient-to-r from-love-sky via-love-ocean to-love-navy text-white font-semibold py-3 rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all"
-                      >
-                        Sign Up Again
-                      </a>
-                      <a
-                        href="/"
-                        className="block w-full border-2 border-love-ocean dark:border-love-sky text-love-ocean dark:text-love-sky font-semibold py-3 rounded-lg hover:bg-love-ice dark:hover:bg-gray-700 transition-all"
-                      >
-                        Back to Login
-                      </a>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Help Text */}
-        {status === 'error' && (
-          <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400 px-4">
-            <p>
-              If you continue to experience issues, please contact support.
-            </p>
-          </div>
+  return (
+    <div className="text-center">
+      <div
+        className={
+          isSuccess
+            ? 'mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300'
+            : 'mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300'
+        }
+      >
+        {isSuccess ? (
+          <CheckCircle className="h-8 w-8" />
+        ) : (
+          <XCircle className="h-8 w-8" />
         )}
       </div>
+
+      <h2 className="mt-5 text-2xl font-bold tracking-tight text-fg">
+        {isSuccess ? 'Email verified' : 'Verification failed'}
+      </h2>
+
+      <Alert
+        variant={isSuccess ? 'success' : 'error'}
+        className="mt-4 text-left"
+      >
+        {message}
+      </Alert>
+
+      {isSuccess ? (
+        <Link href="/" className="mt-6 block">
+          <Button size="lg" className="w-full">
+            Continue to log in
+          </Button>
+        </Link>
+      ) : (
+        <div className="mt-6 space-y-3">
+          <Link href="/auth/signup" className="block">
+            <Button variant="secondary" size="lg" className="w-full">
+              Sign up again
+            </Button>
+          </Link>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to log in
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-love-ice via-white to-love-lavender dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="text-center text-gray-600 dark:text-gray-400">Loading...</div>
-      </div>
-    }>
-      <VerifyEmailContent />
-    </Suspense>
+    <AuthShell>
+      <Suspense fallback={<PageLoader label="Verifying…" />}>
+        <VerifyEmailContent />
+      </Suspense>
+    </AuthShell>
   );
 }

@@ -8,7 +8,7 @@ import { PageTitle } from '@/components/ui/PageTitle';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea, Select, Field } from '@/components/ui/Input';
-import { EmptyState } from '@/components/ui/Feedback';
+import { Alert, EmptyState, Spinner } from '@/components/ui/Feedback';
 import { cn } from '@/lib/utils';
 
 interface LoveLetter {
@@ -161,26 +161,69 @@ export default function LoveLettersPage() {
   );
 }
 
+interface Recipient {
+  id: number;
+  username: string;
+  displayName: string;
+}
+
 function ComposeForm({ onClose }: { onClose: () => void }) {
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [toUserId, setToUserId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [loadingRecipients, setLoadingRecipients] = useState(true);
+  const [error, setError] = useState('');
+
+  // Recipients come from the database. This used to be a hardcoded
+  // "Partner 1" / "Partner 2" with ids 1 and 2, which only matched if those
+  // accounts happened to be the first two rows - otherwise every send failed
+  // the to_user_id foreign key.
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/users');
+        if (res.ok) {
+          const data = await res.json();
+          setRecipients(data.users || []);
+          if ((data.users || []).length === 1) {
+            setToUserId(String(data.users[0].id));
+          }
+        } else {
+          setError('Could not load recipients.');
+        }
+      } catch {
+        setError('Could not load recipients.');
+      } finally {
+        setLoadingRecipients(false);
+      }
+    })();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError('');
 
-    const response = await fetch('/api/love-letters', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ toUserId: parseInt(toUserId), subject, content }),
-    });
+    try {
+      const response = await fetch('/api/love-letters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toUserId: parseInt(toUserId), subject, content }),
+      });
 
-    if (response.ok) {
-      onClose();
+      if (response.ok) {
+        onClose();
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || 'Could not send the letter. Please try again.');
+      }
+    } catch {
+      setError('Could not send the letter. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   return (
@@ -188,18 +231,42 @@ function ComposeForm({ onClose }: { onClose: () => void }) {
       <h2 className="mb-6 text-2xl font-bold tracking-tight text-fg">
         Compose a love letter
       </h2>
+      {error && (
+        <Alert variant="error" className="mb-4">
+          {error}
+        </Alert>
+      )}
+
+      {!loadingRecipients && recipients.length === 0 && (
+        <Alert variant="info" className="mb-4">
+          There is no one to write to yet. Once your partner creates an account
+          and verifies their email, they will show up here.
+        </Alert>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="To" required htmlFor="ll-to">
-          <Select
-            id="ll-to"
-            value={toUserId}
-            onChange={(e) => setToUserId(e.target.value)}
-            required
-          >
-            <option value="">Select recipient</option>
-            <option value="1">Partner 1</option>
-            <option value="2">Partner 2</option>
-          </Select>
+          {loadingRecipients ? (
+            <div className="flex h-11 items-center gap-2 text-sm text-muted">
+              <Spinner className="h-4 w-4" />
+              Loading recipients…
+            </div>
+          ) : (
+            <Select
+              id="ll-to"
+              value={toUserId}
+              onChange={(e) => setToUserId(e.target.value)}
+              disabled={recipients.length === 0}
+              required
+            >
+              <option value="">Select recipient</option>
+              {recipients.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.displayName || r.username}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
 
         <Field label="Subject" required htmlFor="ll-subject">
@@ -231,6 +298,7 @@ function ComposeForm({ onClose }: { onClose: () => void }) {
             size="lg"
             className="flex-1"
             loading={isSubmitting}
+            disabled={isSubmitting || loadingRecipients || recipients.length === 0}
           >
             {isSubmitting ? 'Sending…' : 'Send letter'}
           </Button>

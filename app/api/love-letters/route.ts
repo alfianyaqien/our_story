@@ -77,6 +77,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // to_user_id has a foreign key to users(id); an id that does not exist
+    // used to surface as an opaque 500. Check first and say what is wrong.
+    const [recipient] = await pool.execute<RowDataPacket[]>(
+      'SELECT id FROM users WHERE id = ?',
+      [toUserId]
+    );
+    if (recipient.length === 0) {
+      return NextResponse.json(
+        { error: 'That recipient does not exist' },
+        { status: 400 }
+      );
+    }
+
     const encryptedContent = encrypt(content);
 
     const [result] = await pool.execute<ResultSetHeader>(

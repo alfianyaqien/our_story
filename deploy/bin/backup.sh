@@ -15,14 +15,43 @@ set -a; . "$ROOT/shared/env"; set +a
 
 mkdir -p "$DEST"
 
+# Every artifact below contains either the data or the key that decrypts it, so
+# none of it may be group- or world-readable. Set before the first file is made.
+umask 077
+
+# The dump deliberately omits --routines and --events. Both require privileges
+# story_app does not have, and EVENT in particular implies CREATE EVENT: granting
+# it to the credential the app process loads would let an app compromise schedule
+# arbitrary SQL. The schema here is plain tables, so nothing is lost.
+#
+# "Nothing is lost" holds only while the schema stays plain tables. That is NOT
+# asserted here: information_schema filters rows by privilege, and story_app -
+# lacking TRIGGER and EXECUTE - counts 0 routines and 0 triggers even when they
+# exist (measured: root sees 1, story_app sees 0). A runtime check here would be
+# blind and would read as reassurance.
+#
+# The guard lives in CI instead, as a static check over database/migrations/,
+# which is the only path by which this schema changes. See the "Schema objects
+# the backup cannot capture" step in .github/workflows/ci.yml.
+
 # --single-transaction so the dump is consistent without locking the app out,
 # which matters because InnoDB is the only engine in use here.
+# --no-tablespaces avoids the PROCESS privilege, which is global, not per-schema.
 echo "==> dumping database"
 mysqldump \
   --host="${DB_HOST}" --port="${DB_PORT}" \
   --user="${DB_USER}" --password="${DB_PASSWORD}" \
-  --single-transaction --quick --routines --events \
+  --single-transaction --quick --no-tablespaces \
   "${DB_NAME}" | gzip -9 > "$DEST/db-$STAMP.sql.gz"
+
+# gzip exits 0 even when mysqldump upstream of it failed, so the pipeline's real
+# status must be read explicitly. Without this a permission error yields a valid
+# gzip of an error-free-looking partial dump.
+if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+  echo "BACKUP ABORTED: mysqldump failed" >&2
+  rm -f "$DEST/db-$STAMP.sql.gz"
+  exit 1
+fi
 
 echo "==> archiving uploads"
 # -C so paths in the archive are relative, making a restore a plain extract into

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import pool from '@/lib/database';
+import { requireStoryMember, StoryAccessError } from '@/lib/story';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 interface NoteRow extends RowDataPacket {
@@ -16,18 +16,15 @@ interface NoteRow extends RowDataPacket {
 // Get all notes
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const [rows] = await pool.execute<NoteRow[]>(
       `SELECT n.*, u.display_name as creator_name
        FROM notes n
        JOIN users u ON n.created_by = u.id
-       ORDER BY n.updated_at DESC`
+       WHERE n.story_id = ?
+       ORDER BY n.updated_at DESC`,
+      [storyId]
     );
 
     const formattedNotes = rows.map(note => ({
@@ -42,6 +39,7 @@ export async function GET() {
 
     return NextResponse.json({ notes: formattedNotes });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error fetching notes:', error);
     return NextResponse.json({ error: 'Failed to fetch notes' }, { status: 500 });
   }
@@ -50,14 +48,8 @@ export async function GET() {
 // Create new note
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
-    const session = JSON.parse(sessionCookie.value);
     const { title, content } = await request.json();
 
     if (!title || !content) {
@@ -65,9 +57,9 @@ export async function POST(request: NextRequest) {
     }
 
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO notes (title, content, created_by)
-       VALUES (?, ?, ?)`,
-      [title, content, session.userId]
+      `INSERT INTO notes (story_id, title, content, created_by)
+       VALUES (?, ?, ?, ?)`,
+      [storyId, title, content, userId]
     );
 
     return NextResponse.json({ 
@@ -75,6 +67,7 @@ export async function POST(request: NextRequest) {
       noteId: result.insertId
     });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error creating note:', error);
     return NextResponse.json({ error: 'Failed to create note' }, { status: 500 });
   }
@@ -83,12 +76,7 @@ export async function POST(request: NextRequest) {
 // Update note
 export async function PUT(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { id, title, content } = await request.json();
 
@@ -99,12 +87,13 @@ export async function PUT(request: NextRequest) {
     await pool.execute(
       `UPDATE notes
        SET title = ?, content = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
-      [title, content, id]
+       WHERE id = ? AND story_id = ?`,
+      [title, content, id, storyId]
     );
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error updating note:', error);
     return NextResponse.json({ error: 'Failed to update note' }, { status: 500 });
   }
@@ -113,12 +102,7 @@ export async function PUT(request: NextRequest) {
 // Delete note
 export async function DELETE(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -127,10 +111,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Note ID is required' }, { status: 400 });
     }
 
-    await pool.execute('DELETE FROM notes WHERE id = ?', [id]);
+    await pool.execute('DELETE FROM notes WHERE id = ? AND story_id = ?', [id, storyId]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error deleting note:', error);
     return NextResponse.json({ error: 'Failed to delete note' }, { status: 500 });
   }

@@ -4,7 +4,12 @@
  */
 const BASE = process.env.REGRESSION_BASE_URL || 'http://localhost:3000';
 
-let cookie = '';
+// A real cookie jar. The harness previously kept a single string, so the
+// active_story cookie set by /switch replaced the session cookie outright and
+// every later request went out unauthenticated - which made isolation checks
+// pass vacuously against empty 401 bodies.
+let jar = {};
+const cookieHeader = () => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
 const results = [];
 let created = { note: null, travel: null, wish: null, culinary: null, album: null };
 
@@ -16,7 +21,8 @@ function rec(feature, step, ok, detail = '') {
 
 async function req(method, path, body, isForm = false) {
   const opts = { method, headers: {} };
-  if (cookie) opts.headers['Cookie'] = cookie;
+  const hdr = cookieHeader();
+  if (hdr) opts.headers['Cookie'] = hdr;
   if (body && !isForm) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
@@ -24,8 +30,16 @@ async function req(method, path, body, isForm = false) {
     opts.body = body;
   }
   const res = await fetch(BASE + path, opts);
-  const setCookie = res.headers.get('set-cookie');
-  if (setCookie) cookie = setCookie.split(';')[0];
+  // getSetCookie keeps multiple Set-Cookie headers separate; several routes
+  // set more than one.
+  const raw = typeof res.headers.getSetCookie === 'function'
+    ? res.headers.getSetCookie()
+    : (res.headers.get('set-cookie') ? [res.headers.get('set-cookie')] : []);
+  for (const c of raw) {
+    const [pair] = c.split(';');
+    const idx = pair.indexOf('=');
+    if (idx > 0) jar[pair.slice(0, idx).trim()] = pair.slice(idx + 1).trim();
+  }
   let json = null;
   const text = await res.text();
   try { json = JSON.parse(text); } catch { json = { _raw: text.slice(0, 120) }; }
@@ -88,6 +102,24 @@ async function preflight() {
 
   r = await req('GET', '/api/auth/session');
   rec('auth', 'session', r.ok && r.json.user?.username === U, `HTTP ${r.status}`);
+
+  console.log('\n=== STORIES ===');
+  r = await req('GET', '/api/stories');
+  rec('stories', 'new user has no story', r.ok && (r.json.stories || []).length === 0, `HTTP ${r.status}`);
+
+  const noStory = await req('GET', '/api/notes');
+  rec('stories', 'feature routes 403 with NO_STORY before one exists',
+      noStory.status === 403 && noStory.json.code === 'NO_STORY',
+      `HTTP ${noStory.status} ${noStory.json.code || ''}`);
+
+  r = await req('POST', '/api/stories', { name: '' });
+  rec('stories', 'rejects blank name', r.status === 400, `HTTP ${r.status}`);
+
+  r = await req('POST', '/api/stories', { name: 'Regression Story' });
+  const storyId = r.json.story?.id;
+  rec('stories', 'create', r.status === 201 && !!storyId, `HTTP ${r.status}`);
+  r = await req('POST', `/api/stories/${storyId}/switch`);
+  rec('stories', 'switch to own story', r.ok, `HTTP ${r.status}`);
 
   r = await req('POST', '/api/auth/login', { username: U, password: 'WrongPass!' });
   rec('auth', 'rejects wrong password', r.status === 401, `HTTP ${r.status}`);
@@ -223,13 +255,155 @@ async function preflight() {
   r = await req('GET', '/api/quote');
   rec('dashboard', 'quote endpoint', r.ok && !!r.json.quote?.text, `HTTP ${r.status}`);
 
+  console.log('\n=== INVITES ===');
+  {
+    // owner mints a code
+    let inv = await req('POST', `/api/stories/${storyId}/invites`);
+    const code = inv.json.invite?.code;
+    rec('invites', 'owner can create an invite', inv.status === 201 && !!code, `HTTP ${inv.status}`);
+    rec('invites', 'code is long and random', (code || '').length >= 30, `${(code||'').length} chars`);
+
+    let prev = await req('GET', `/api/invites/${encodeURIComponent(code)}`);
+    rec('invites', 'preview shows story and inviter',
+        prev.ok && prev.json.invite?.storyName === 'Regression Story' && !!prev.json.invite?.invitedBy,
+        `HTTP ${prev.status}`);
+
+    const bogus = await req('GET', '/api/invites/definitely-not-a-real-code');
+    rec('invites', 'unknown code is 404', bogus.status === 404, `HTTP ${bogus.status}`);
+
+    // accepting your own invite is refused (already a member -> no-op join)
+    const selfAccept = await req('POST', `/api/invites/${encodeURIComponent(code)}/accept`);
+    rec('invites', 'own invite does not duplicate membership',
+        selfAccept.ok && selfAccept.json.alreadyMember === true, `HTTP ${selfAccept.status}`);
+
+    // a second user redeems it
+    const jarOwner = { ...jar };
+    const P = 'regrp_' + Date.now().toString(36);
+    jar = {};
+    await req('POST', '/api/auth/signup', { username: P, email: `${P}@example.com`, password: 'TestPass123!', displayName: 'Partner' });
+    const [[prow]] = await db.query('SELECT id, verification_token FROM users WHERE username = ?', [P]);
+    await req('GET', `/api/auth/verify-email?token=${encodeURIComponent(prow.verification_token)}`);
+    await req('POST', '/api/auth/login', { username: P, password: 'TestPass123!' });
+
+    const accept = await req('POST', `/api/invites/${encodeURIComponent(code)}/accept`);
+    rec('invites', 'partner accepts', accept.ok && accept.json.storyId === storyId, `HTTP ${accept.status}`);
+
+    const shared = await req('GET', '/api/stories');
+    rec('invites', 'story appears for the partner',
+        (shared.json.stories || []).some((x) => x.id === storyId), '');
+
+    const reuse = await req('POST', `/api/invites/${encodeURIComponent(code)}/accept`);
+    rec('invites', 'code is single-use', reuse.status === 409 || reuse.json.alreadyMember, `HTTP ${reuse.status}`);
+
+    // partner is not the owner
+    const notOwner = await req('POST', `/api/stories/${storyId}/invites`);
+    rec('invites', 'non-owner cannot invite', notOwner.status === 403, `HTTP ${notOwner.status}`);
+    const cantRename = await req('PATCH', `/api/stories/${storyId}`, { name: 'Hijacked' });
+    rec('invites', 'non-owner cannot rename', cantRename.status === 403, `HTTP ${cantRename.status}`);
+    const cantDelete = await req('DELETE', `/api/stories/${storyId}`);
+    rec('invites', 'non-owner cannot delete', cantDelete.status === 403, `HTTP ${cantDelete.status}`);
+
+    // both members now see the same rows
+    await req('POST', '/api/notes', { title: 'Shared by partner', content: 'hello' });
+    jar = jarOwner;
+    const ownerSees = await req('GET', '/api/notes');
+    rec('invites', 'owner sees the partner\'s note',
+        (ownerSees.json.notes || []).some((n) => n.title === 'Shared by partner'), '');
+
+    // story is full
+    const full = await req('POST', `/api/stories/${storyId}/invites`);
+    rec('invites', 'cannot invite once the story is full', full.status === 409, `HTTP ${full.status}`);
+
+    // owner cannot leave their own story
+    const ownerLeave = await req('DELETE', `/api/stories/${storyId}/members/${userId}`);
+    rec('invites', 'owner cannot leave own story', ownerLeave.status === 400, `HTTP ${ownerLeave.status}`);
+
+    // owner removes the partner
+    const removed = await req('DELETE', `/api/stories/${storyId}/members/${prow.id}`);
+    rec('invites', 'owner removes partner', removed.ok, `HTTP ${removed.status}`);
+    const after = await req('GET', `/api/stories/${storyId}`);
+    rec('invites', 'member list back to one', (after.json.story?.members || []).length === 1, '');
+
+    // revoked invites cannot be previewed
+    const inv2 = await req('POST', `/api/stories/${storyId}/invites`);
+    const code2 = inv2.json.invite.code;
+    await req('DELETE', `/api/invites/${encodeURIComponent(code2)}`);
+    const revoked = await req('GET', `/api/invites/${encodeURIComponent(code2)}`);
+    rec('invites', 'revoked invite is 410', revoked.status === 410, `HTTP ${revoked.status}`);
+
+    // expired invites cannot be previewed
+    const inv3 = await req('POST', `/api/stories/${storyId}/invites`);
+    const code3 = inv3.json.invite.code;
+    await db.query('UPDATE story_invites SET expires_at = DATE_SUB(NOW(), INTERVAL 1 DAY) WHERE code = ?', [code3]);
+    const expired = await req('GET', `/api/invites/${encodeURIComponent(code3)}`);
+    rec('invites', 'expired invite is 410', expired.status === 410, `HTTP ${expired.status}`);
+
+    await db.query('DELETE FROM users WHERE username = ?', [P]);
+  }
+
+  console.log('\n=== CROSS-STORY ISOLATION ===');
+  // The bug this whole feature exists to fix: six of seven routes previously
+  // had no ownership filter, so any signed-in user saw everyone's rows.
+  {
+    const jarA = { ...jar };
+
+    // Seed one row per feature into story A.
+    await req('POST', '/api/notes',    { title: 'A-note', content: 'private to A' });
+    await req('POST', '/api/travel',   { destination: 'A-city', status: 'planning' });
+    await req('POST', '/api/wishlist', { title: 'A-wish', priority: 'low', status: 'wished' });
+    await req('POST', '/api/culinary', { placeName: 'A-place', priceRange: '$', status: 'wishlist', isFavorite: false });
+    await req('POST', '/api/albums',   { name: 'A-album' });
+
+    // A second user with their own separate story.
+    const V = 'regr2_' + Date.now().toString(36);
+    jar = {};
+    await req('POST', '/api/auth/signup', { username: V, email: `${V}@example.com`, password: 'TestPass123!', displayName: 'Other User' });
+    const [[vrow]] = await db.query('SELECT id, verification_token FROM users WHERE username = ?', [V]);
+    await req('GET', `/api/auth/verify-email?token=${encodeURIComponent(vrow.verification_token)}`);
+    await req('POST', '/api/auth/login', { username: V, password: 'TestPass123!' });
+    const bStory = await req('POST', '/api/stories', { name: 'Other Story' });
+    await req('POST', `/api/stories/${bStory.json.story.id}/switch`);
+
+    const checks = [
+      ['notes',    '/api/notes',    (j) => j.notes,   'A-note',  'title'],
+      ['travel',   '/api/travel',   (j) => j.plans,   'A-city',  'destination'],
+      ['wishlist', '/api/wishlist', (j) => j.items,   'A-wish',  'title'],
+      ['culinary', '/api/culinary', (j) => j.recipes, 'A-place', 'placeName'],
+      ['albums',   '/api/albums',   (j) => j.albums,  'A-album', 'name'],
+    ];
+    for (const [label, path, pick, needle, field] of checks) {
+      const res = await req('GET', path);
+      const rows = pick(res.json) || [];
+      const leaked = rows.some((x) => x[field] === needle);
+      rec('isolation', `${label}: story B cannot see story A's row`, !leaked,
+          leaked ? 'LEAKED' : `${rows.length} own row(s)`);
+    }
+
+    const photos = await req('GET', '/api/photos');
+    rec('isolation', 'photos: story B sees none of A', (photos.json.photos || []).length === 0);
+
+    // B must not be able to reach A's story by switching to it.
+    const steal = await req('POST', `/api/stories/${storyId}/switch`);
+    rec('isolation', 'cannot switch into a story you are not in', steal.status === 403, `HTTP ${steal.status}`);
+
+    // A forged cookie must not grant access either.
+    jar.active_story = String(storyId);
+    const forged = await req('GET', '/api/notes');
+    const forgedLeak = (forged.json.notes || []).some((n) => n.title === 'A-note');
+    rec('isolation', 'forged active_story cookie is ignored', !forgedLeak,
+        forgedLeak ? 'LEAKED' : 'rejected');
+
+    await db.query('DELETE FROM users WHERE username = ?', [V]);
+    jar = jarA;
+  }
+
   console.log('\n=== AUTH GUARD (unauthenticated) ===');
-  const saved = cookie; cookie = '';
+  const saved = { ...jar }; jar = {};
   for (const p of ['/api/notes', '/api/travel', '/api/wishlist', '/api/culinary', '/api/photos', '/api/albums', '/api/love-letters']) {
     const g = await req('GET', p);
     rec('auth-guard', `${p} rejects anon`, g.status === 401, `HTTP ${g.status}`);
   }
-  cookie = saved;
+  jar = saved;
 
   console.log('\n=== LOGOUT ===');
   r = await req('POST', '/api/auth/logout');

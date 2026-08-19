@@ -12,7 +12,8 @@ const migrations = [
   '005_create_culinary_photos_table.sql',
   '006_enhance_users_table_for_auth_v2.sql',
   '007_create_albums_table.sql',
-  '008_create_missing_feature_tables.sql'
+  '008_create_missing_feature_tables.sql',
+  '009_create_stories.sql'
 ];
 
 async function runMigrations() {

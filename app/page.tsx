@@ -9,6 +9,22 @@ import { Button } from '@/components/ui/Button';
 import { Input, Field } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Feedback';
 
+/**
+ * Where to go after authenticating. Set by the invite flow (?next=/join/CODE)
+ * so someone following a link lands back on it. Read from location rather than
+ * useSearchParams to avoid forcing a Suspense boundary on this route.
+ *
+ * Only same-origin relative paths are honoured, so the parameter cannot be
+ * used to bounce someone to another site.
+ */
+function nextDestination(fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  const raw = new URLSearchParams(window.location.search).get('next');
+  if (!raw) return fallback;
+  if (!raw.startsWith('/') || raw.startsWith('//')) return fallback;
+  return raw;
+}
+
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -33,7 +49,7 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        router.push('/dashboard');
+        router.push(nextDestination('/dashboard'));
       } else {
         setError(data.error || 'Login failed');
       }

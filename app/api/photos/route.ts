@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { unlink } from 'fs/promises';
 import path from 'path';
 import pool from '@/lib/database';
+import { requireStoryMember, StoryAccessError } from '@/lib/story';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 interface PhotoRow extends RowDataPacket {
@@ -26,12 +26,7 @@ interface PhotoRow extends RowDataPacket {
 // GET - Fetch all photos
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { searchParams } = new URL(request.url);
     const albumId = searchParams.get('albumId');
@@ -42,9 +37,10 @@ export async function GET(request: NextRequest) {
         a.name as album_name
       FROM photos p
       LEFT JOIN albums a ON p.album_id = a.id
+      WHERE p.story_id = ?
       ORDER BY p.uploaded_at DESC
     `;
-    let params: any[] = [];
+    let params: any[] = [storyId];
 
     if (albumId && albumId !== 'all') {
       query = `
@@ -53,10 +49,10 @@ export async function GET(request: NextRequest) {
           a.name as album_name
         FROM photos p
         LEFT JOIN albums a ON p.album_id = a.id
-        WHERE p.album_id = ?
+        WHERE p.story_id = ? AND p.album_id = ?
         ORDER BY p.uploaded_at DESC
       `;
-      params = [albumId];
+      params = [storyId, albumId];
     }
 
     const [rows] = await pool.execute<PhotoRow[]>(query, params);
@@ -80,6 +76,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ photos });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error fetching photos:', error);
     return NextResponse.json({ error: 'Failed to fetch photos' }, { status: 500 });
   }
@@ -88,12 +85,7 @@ export async function GET(request: NextRequest) {
 // DELETE - Delete a photo
 export async function DELETE(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { searchParams } = new URL(request.url);
     const photoId = searchParams.get('id');
@@ -104,8 +96,8 @@ export async function DELETE(request: NextRequest) {
 
     // Get photo details before deleting
     const [rows] = await pool.execute<PhotoRow[]>(
-      'SELECT * FROM photos WHERE id = ?',
-      [photoId]
+      'SELECT * FROM photos WHERE id = ? AND story_id = ?',
+      [photoId, storyId]
     );
 
     if (rows.length === 0) {
@@ -125,15 +117,15 @@ export async function DELETE(request: NextRequest) {
 
     // Delete from database
     await pool.execute<ResultSetHeader>(
-      'DELETE FROM photos WHERE id = ?',
-      [photoId]
+      'DELETE FROM photos WHERE id = ? AND story_id = ?',
+      [photoId, storyId]
     );
 
     // Update album photo count
     if (photo.album_id) {
       await pool.execute(
-        'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = ?) WHERE id = ?',
-        [photo.album_id, photo.album_id]
+        'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = ?) WHERE id = ? AND story_id = ?',
+        [photo.album_id, photo.album_id, storyId]
       );
     }
 
@@ -142,6 +134,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Photo deleted successfully' 
     });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error deleting photo:', error);
     return NextResponse.json({ error: 'Failed to delete photo' }, { status: 500 });
   }
@@ -150,12 +143,7 @@ export async function DELETE(request: NextRequest) {
 // PUT - Update photo metadata
 export async function PUT(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { id, title, description, albumId } = await request.json();
 
@@ -165,8 +153,8 @@ export async function PUT(request: NextRequest) {
 
     // Get current album_id before update
     const [currentPhoto] = await pool.execute<PhotoRow[]>(
-      'SELECT album_id FROM photos WHERE id = ?',
-      [id]
+      'SELECT album_id FROM photos WHERE id = ? AND story_id = ?',
+      [id, storyId]
     );
 
     if (currentPhoto.length === 0) {
@@ -176,22 +164,22 @@ export async function PUT(request: NextRequest) {
     const oldAlbumId = currentPhoto[0].album_id;
 
     await pool.execute<ResultSetHeader>(
-      'UPDATE photos SET title = ?, description = ?, album_id = ? WHERE id = ?',
-      [title || null, description || null, albumId || null, id]
+      'UPDATE photos SET title = ?, description = ?, album_id = ? WHERE id = ? AND story_id = ?',
+      [title || null, description || null, albumId || null, id, storyId]
     );
 
     // Update photo counts for both old and new albums
     if (oldAlbumId) {
       await pool.execute(
-        'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = ?) WHERE id = ?',
-        [oldAlbumId, oldAlbumId]
+        'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = ?) WHERE id = ? AND story_id = ?',
+        [oldAlbumId, oldAlbumId, storyId]
       );
     }
 
     if (albumId && albumId !== oldAlbumId) {
       await pool.execute(
-        'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = ?) WHERE id = ?',
-        [albumId, albumId]
+        'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = ?) WHERE id = ? AND story_id = ?',
+        [albumId, albumId, storyId]
       );
     }
 
@@ -200,6 +188,7 @@ export async function PUT(request: NextRequest) {
       message: 'Photo updated successfully' 
     });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error updating photo:', error);
     return NextResponse.json({ error: 'Failed to update photo' }, { status: 500 });
   }

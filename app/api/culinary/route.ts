@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import pool from '@/lib/database';
+import { requireStoryMember, StoryAccessError } from '@/lib/story';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { toSqlDate, fromSqlDate } from '@/lib/date';
 
@@ -21,15 +21,11 @@ interface CulinaryPlanRow extends RowDataPacket {
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const [rows] = await pool.execute<CulinaryPlanRow[]>(
-      `SELECT * FROM recipes ORDER BY is_favorite DESC, created_at DESC`
+      `SELECT * FROM recipes WHERE story_id = ? ORDER BY is_favorite DESC, created_at DESC`,
+      [storyId]
     );
 
     const formattedPlans = rows.map(plan => ({
@@ -49,6 +45,7 @@ export async function GET() {
 
     return NextResponse.json({ recipes: formattedPlans });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error fetching culinary plans:', error);
     return NextResponse.json({ error: 'Failed to fetch culinary plans' }, { status: 500 });
   }
@@ -56,12 +53,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { 
       placeName, 
@@ -81,9 +73,10 @@ export async function POST(request: NextRequest) {
     }
 
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO recipes (place_name, location, cuisine_type, price_range, recommended_menu, notes, status, rating, is_favorite, visit_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO recipes (story_id, place_name, location, cuisine_type, price_range, recommended_menu, notes, status, rating, is_favorite, visit_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        storyId,
         placeName, 
         location || null, 
         cuisineType || null, 
@@ -102,6 +95,7 @@ export async function POST(request: NextRequest) {
       recipeId: result.insertId
     });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error creating culinary plan:', error);
     return NextResponse.json({ error: 'Failed to create culinary plan' }, { status: 500 });
   }
@@ -109,12 +103,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { 
       id, 
@@ -138,7 +127,7 @@ export async function PUT(request: NextRequest) {
       `UPDATE recipes
        SET place_name = ?, location = ?, cuisine_type = ?, price_range = ?, 
            recommended_menu = ?, notes = ?, status = ?, rating = ?, is_favorite = ?, visit_date = ?
-       WHERE id = ?`,
+       WHERE id = ? AND story_id = ?`,
       [
         placeName, 
         location || null, 
@@ -150,12 +139,14 @@ export async function PUT(request: NextRequest) {
         rating || null,
         isFavorite || false,
         toSqlDate(visitDate),
-        id
+        id,
+        storyId
       ]
     );
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error updating culinary plan:', error);
     return NextResponse.json({ error: 'Failed to update culinary plan' }, { status: 500 });
   }
@@ -163,12 +154,7 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -177,10 +163,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Plan ID is required' }, { status: 400 });
     }
 
-    await pool.execute('DELETE FROM recipes WHERE id = ?', [id]);
+    await pool.execute('DELETE FROM recipes WHERE id = ? AND story_id = ?', [id, storyId]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error deleting culinary plan:', error);
     return NextResponse.json({ error: 'Failed to delete culinary plan' }, { status: 500 });
   }

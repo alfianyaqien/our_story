@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import pool from '@/lib/database';
+import { requireStoryMember, StoryAccessError } from '@/lib/story';
 import { writeFile } from 'fs/promises';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import * as fs from 'fs';
@@ -21,12 +21,7 @@ interface CulinaryPhotoRow extends RowDataPacket {
 // GET - Fetch photos for a culinary plan
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { searchParams } = new URL(request.url);
     const culinaryId = searchParams.get('culinaryId');
@@ -36,8 +31,11 @@ export async function GET(request: NextRequest) {
     }
 
     const [rows] = await pool.execute<CulinaryPhotoRow[]>(
-      'SELECT * FROM culinary_photos WHERE culinary_id = ? ORDER BY photo_order ASC',
-      [culinaryId]
+      `SELECT cp.* FROM culinary_photos cp
+         JOIN recipes r ON r.id = cp.culinary_id
+        WHERE cp.culinary_id = ? AND r.story_id = ?
+        ORDER BY cp.photo_order ASC`,
+      [culinaryId, storyId]
     );
 
     const photos = rows.map(row => ({
@@ -54,6 +52,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ photos });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error fetching culinary photos:', error);
     return NextResponse.json({ error: 'Failed to fetch photos' }, { status: 500 });
   }
@@ -62,15 +61,7 @@ export async function GET(request: NextRequest) {
 // POST - Upload photos for a culinary plan
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    // Parse session to get user ID
-    const userId = parseInt(sessionCookie.value.split(':')[0]);
+    const { userId, storyId } = await requireStoryMember();
 
     const formData = await request.formData();
     const culinaryId = formData.get('culinaryId') as string;
@@ -104,8 +95,8 @@ export async function POST(request: NextRequest) {
 
     // Check if culinary plan has status 'visited' and get place name
     const [culinaryRows] = await pool.execute<RowDataPacket[]>(
-      'SELECT status, place_name FROM recipes WHERE id = ?',
-      [culinaryId]
+      'SELECT status, place_name FROM recipes WHERE id = ? AND story_id = ?',
+      [culinaryId, storyId]
     );
 
     if (culinaryRows.length === 0) {
@@ -153,8 +144,10 @@ export async function POST(request: NextRequest) {
 
     // Delete existing photo with same order if exists
     const [existingPhotos] = await pool.execute<CulinaryPhotoRow[]>(
-      'SELECT * FROM culinary_photos WHERE culinary_id = ? AND photo_order = ?',
-      [culinaryId, photoOrder]
+      `SELECT cp.* FROM culinary_photos cp
+         JOIN recipes r ON r.id = cp.culinary_id
+        WHERE cp.culinary_id = ? AND cp.photo_order = ? AND r.story_id = ?`,
+      [culinaryId, photoOrder, storyId]
     );
 
     if (existingPhotos.length > 0) {
@@ -165,14 +158,16 @@ export async function POST(request: NextRequest) {
       }
       // Delete from culinary_photos database
       await pool.execute(
-        'DELETE FROM culinary_photos WHERE culinary_id = ? AND photo_order = ?',
-        [culinaryId, photoOrder]
+        `DELETE cp FROM culinary_photos cp
+           JOIN recipes r ON r.id = cp.culinary_id
+          WHERE cp.culinary_id = ? AND cp.photo_order = ? AND r.story_id = ?`,
+        [culinaryId, photoOrder, storyId]
       );
       
       // Delete from photos (gallery) database if exists
       await pool.execute(
-        'DELETE FROM photos WHERE file_name = ?',
-        [existingPhotos[0].file_name]
+        'DELETE FROM photos WHERE file_name = ? AND story_id = ?',
+        [existingPhotos[0].file_name, storyId]
       );
     }
 
@@ -192,9 +187,10 @@ export async function POST(request: NextRequest) {
 
     // Also save to photos (gallery) table with 'culinary' album
     await pool.execute(
-      `INSERT INTO photos (user_id, title, description, file_name, file_path, file_size, mime_type, width, height, album)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO photos (story_id, user_id, title, description, file_name, file_path, file_size, mime_type, width, height, album)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        storyId,
         userId,
         `${placeName} - Photo ${photoOrder}`,
         `Photo from culinary visit to ${placeName}`,
@@ -224,6 +220,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Upload error:', error);
     return NextResponse.json({ 
       error: 'Failed to upload photo' 
@@ -234,12 +231,7 @@ export async function POST(request: NextRequest) {
 // DELETE - Delete a photo
 export async function DELETE(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { searchParams } = new URL(request.url);
     const photoId = searchParams.get('id');
@@ -250,8 +242,10 @@ export async function DELETE(request: NextRequest) {
 
     // Get photo details
     const [photos] = await pool.execute<CulinaryPhotoRow[]>(
-      'SELECT * FROM culinary_photos WHERE id = ?',
-      [photoId]
+      `SELECT cp.* FROM culinary_photos cp
+         JOIN recipes r ON r.id = cp.culinary_id
+        WHERE cp.id = ? AND r.story_id = ?`,
+      [photoId, storyId]
     );
 
     if (photos.length === 0) {
@@ -268,14 +262,16 @@ export async function DELETE(request: NextRequest) {
 
     // Delete from culinary_photos database
     await pool.execute(
-      'DELETE FROM culinary_photos WHERE id = ?',
-      [photoId]
+      `DELETE cp FROM culinary_photos cp
+         JOIN recipes r ON r.id = cp.culinary_id
+        WHERE cp.id = ? AND r.story_id = ?`,
+      [photoId, storyId]
     );
 
     // Also delete from photos (gallery) database
     await pool.execute(
-      'DELETE FROM photos WHERE file_name = ?',
-      [photo.file_name]
+      'DELETE FROM photos WHERE file_name = ? AND story_id = ?',
+      [photo.file_name, storyId]
     );
 
     return NextResponse.json({ 
@@ -283,6 +279,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Photo deleted successfully' 
     });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Delete error:', error);
     return NextResponse.json({ 
       error: 'Failed to delete photo' 

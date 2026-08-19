@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import pool from '@/lib/database';
+import { requireStoryMember, StoryAccessError } from '@/lib/story';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import { toSqlDate, fromSqlDate } from '@/lib/date';
 
@@ -17,15 +17,11 @@ interface TravelPlanRow extends RowDataPacket {
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const [rows] = await pool.execute<TravelPlanRow[]>(
-      `SELECT * FROM travel_plans ORDER BY created_at DESC`
+      `SELECT * FROM travel_plans WHERE story_id = ? ORDER BY created_at DESC`,
+      [storyId]
     );
 
     const formattedPlans = rows.map(plan => ({
@@ -41,6 +37,7 @@ export async function GET() {
 
     return NextResponse.json({ plans: formattedPlans });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error fetching travel plans:', error);
     return NextResponse.json({ error: 'Failed to fetch travel plans' }, { status: 500 });
   }
@@ -48,12 +45,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { destination, startDate, endDate, budget, notes, status } = await request.json();
 
@@ -62,9 +54,9 @@ export async function POST(request: NextRequest) {
     }
 
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO travel_plans (destination, start_date, end_date, budget, notes, status)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [destination, toSqlDate(startDate), toSqlDate(endDate), budget || null, notes || '', status || 'wishlist']
+      `INSERT INTO travel_plans (story_id, destination, start_date, end_date, budget, notes, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [storyId, destination, toSqlDate(startDate), toSqlDate(endDate), budget || null, notes || '', status || 'wishlist']
     );
 
     return NextResponse.json({ 
@@ -72,6 +64,7 @@ export async function POST(request: NextRequest) {
       planId: result.insertId
     });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error creating travel plan:', error);
     return NextResponse.json({ error: 'Failed to create travel plan' }, { status: 500 });
   }
@@ -79,12 +72,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { id, destination, startDate, endDate, budget, notes, status } = await request.json();
 
@@ -95,12 +83,13 @@ export async function PUT(request: NextRequest) {
     await pool.execute(
       `UPDATE travel_plans
        SET destination = ?, start_date = ?, end_date = ?, budget = ?, notes = ?, status = ?
-       WHERE id = ?`,
-      [destination, toSqlDate(startDate), toSqlDate(endDate), budget || null, notes || '', status || 'wishlist', id]
+       WHERE id = ? AND story_id = ?`,
+      [destination, toSqlDate(startDate), toSqlDate(endDate), budget || null, notes || '', status || 'wishlist', id, storyId]
     );
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error updating travel plan:', error);
     return NextResponse.json({ error: 'Failed to update travel plan' }, { status: 500 });
   }
@@ -108,12 +97,7 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -122,10 +106,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Plan ID is required' }, { status: 400 });
     }
 
-    await pool.execute('DELETE FROM travel_plans WHERE id = ?', [id]);
+    await pool.execute('DELETE FROM travel_plans WHERE id = ? AND story_id = ?', [id, storyId]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error deleting travel plan:', error);
     return NextResponse.json({ error: 'Failed to delete travel plan' }, { status: 500 });
   }

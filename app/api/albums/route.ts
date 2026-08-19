@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import pool from '@/lib/database';
+import { requireStoryMember, StoryAccessError } from '@/lib/story';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 interface AlbumRow extends RowDataPacket {
@@ -18,12 +18,7 @@ interface AlbumRow extends RowDataPacket {
 // GET - Fetch all albums
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const query = `
       SELECT 
@@ -31,10 +26,11 @@ export async function GET(request: NextRequest) {
         p.file_path as cover_photo_path
       FROM albums a
       LEFT JOIN photos p ON a.cover_photo_id = p.id
+      WHERE a.story_id = ?
       ORDER BY a.created_at DESC
     `;
 
-    const [rows] = await pool.execute<AlbumRow[]>(query);
+    const [rows] = await pool.execute<AlbumRow[]>(query, [storyId]);
 
     const albums = rows.map(album => ({
       id: album.id,
@@ -50,6 +46,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ albums });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error fetching albums:', error);
     return NextResponse.json({ error: 'Failed to fetch albums' }, { status: 500 });
   }
@@ -58,12 +55,7 @@ export async function GET(request: NextRequest) {
 // POST - Create a new album
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const body = await request.json();
     const { name, description } = body;
@@ -74,8 +66,8 @@ export async function POST(request: NextRequest) {
 
     // Check if album with same name already exists
     const [existing] = await pool.execute<RowDataPacket[]>(
-      'SELECT id FROM albums WHERE name = ?',
-      [name.trim()]
+      'SELECT id FROM albums WHERE name = ? AND story_id = ?',
+      [name.trim(), storyId]
     );
 
     if (existing.length > 0) {
@@ -83,13 +75,13 @@ export async function POST(request: NextRequest) {
     }
 
     const [result] = await pool.execute<ResultSetHeader>(
-      'INSERT INTO albums (user_id, name, description) VALUES (?, ?, ?)',
-      [1, name.trim(), description || null]
+      'INSERT INTO albums (story_id, user_id, name, description) VALUES (?, ?, ?, ?)',
+      [storyId, userId, name.trim(), description || null]
     );
 
     const [newAlbum] = await pool.execute<AlbumRow[]>(
-      'SELECT * FROM albums WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM albums WHERE id = ? AND story_id = ?',
+      [result.insertId, storyId]
     );
 
     return NextResponse.json({
@@ -106,6 +98,7 @@ export async function POST(request: NextRequest) {
       }
     }, { status: 201 });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error creating album:', error);
     return NextResponse.json({ error: 'Failed to create album' }, { status: 500 });
   }
@@ -114,12 +107,7 @@ export async function POST(request: NextRequest) {
 // PUT - Update an album
 export async function PUT(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const body = await request.json();
     const { id, name, description, coverPhotoId } = body;
@@ -130,7 +118,7 @@ export async function PUT(request: NextRequest) {
 
     // Check if album exists
     const [existing] = await pool.execute<RowDataPacket[]>(
-      'SELECT id FROM albums WHERE id = ?',
+      'SELECT id FROM albums WHERE id = ? AND story_id = ?',
       [id]
     );
 
@@ -172,10 +160,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
 
-    values.push(id);
+    values.push(id, storyId);
 
     await pool.execute(
-      `UPDATE albums SET ${updates.join(', ')} WHERE id = ?`,
+      `UPDATE albums SET ${updates.join(', ')} WHERE id = ? AND story_id = ?`,
       values
     );
 
@@ -204,6 +192,7 @@ export async function PUT(request: NextRequest) {
       }
     });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error updating album:', error);
     return NextResponse.json({ error: 'Failed to update album' }, { status: 500 });
   }
@@ -212,12 +201,7 @@ export async function PUT(request: NextRequest) {
 // DELETE - Delete an album
 export async function DELETE(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+    const { userId, storyId } = await requireStoryMember();
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -228,8 +212,8 @@ export async function DELETE(request: NextRequest) {
 
     // Prevent deleting the General album
     const [album] = await pool.execute<RowDataPacket[]>(
-      'SELECT name FROM albums WHERE id = ?',
-      [id]
+      'SELECT name FROM albums WHERE id = ? AND story_id = ?',
+      [id, storyId]
     );
 
     if (album.length === 0) {
@@ -242,8 +226,8 @@ export async function DELETE(request: NextRequest) {
 
     // Get the General album ID
     const [generalAlbum] = await pool.execute<RowDataPacket[]>(
-      'SELECT id FROM albums WHERE name = ? LIMIT 1',
-      ['General']
+      'SELECT id FROM albums WHERE name = ? AND story_id = ? LIMIT 1',
+      ['General', storyId]
     );
 
     if (generalAlbum.length === 0) {
@@ -254,21 +238,22 @@ export async function DELETE(request: NextRequest) {
 
     // Move all photos from this album to General
     await pool.execute(
-      'UPDATE photos SET album_id = ? WHERE album_id = ?',
-      [generalAlbumId, id]
+      'UPDATE photos SET album_id = ? WHERE album_id = ? AND story_id = ?',
+      [generalAlbumId, id, storyId]
     );
 
     // Update photo counts
     await pool.execute(
-      'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = albums.id) WHERE id IN (?, ?)',
-      [id, generalAlbumId]
+      'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = albums.id) WHERE id IN (?, ?) AND story_id = ?',
+      [id, generalAlbumId, storyId]
     );
 
     // Delete the album
-    await pool.execute('DELETE FROM albums WHERE id = ?', [id]);
+    await pool.execute('DELETE FROM albums WHERE id = ? AND story_id = ?', [id, storyId]);
 
     return NextResponse.json({ message: 'Album deleted successfully' });
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Error deleting album:', error);
     return NextResponse.json({ error: 'Failed to delete album' }, { status: 500 });
   }

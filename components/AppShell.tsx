@@ -103,6 +103,7 @@ export function AppShell({
   const isDark = theme === 'dark';
   const [mobileNav, setMobileNav] = useState(false);
   const [ownUser, setOwnUser] = useState<ShellUser | null>(null);
+  const [activeStory, setActiveStory] = useState<{ id: number; name: string } | null>(null);
   const selfFetch = user === undefined;
 
   useEffect(() => {
@@ -126,6 +127,31 @@ export function AppShell({
     };
   }, [selfFetch, router]);
 
+  // A signed-in user with no story cannot load any feature data, so send them
+  // to create one rather than showing an app full of empty states.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/stories');
+        if (!res.ok) return;
+        const data = await res.json();
+        const stories = data.stories || [];
+        if (cancelled) return;
+        if (stories.length === 0) {
+          router.push('/stories/new');
+          return;
+        }
+        setActiveStory({ id: stories[0].id, name: stories[0].name });
+      } catch {
+        // leave the shell as-is; feature pages surface their own errors
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
   const shellUser = selfFetch ? ownUser : user;
 
   const handleLogout = async () => {
@@ -146,8 +172,15 @@ export function AppShell({
           <span className="shrink-0">
             <Logo size="small" variant="minimal" />
           </span>
-          <span className="whitespace-nowrap text-lg font-bold tracking-tight text-fg opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-            Our Story
+          <span className="min-w-0 whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            <span className="block truncate text-lg font-bold leading-tight tracking-tight text-fg">
+              {activeStory?.name || 'Our Story'}
+            </span>
+            {activeStory && (
+              <span className="block truncate text-[11px] text-muted">
+                Our Story
+              </span>
+            )}
           </span>
         </Link>
 
@@ -187,8 +220,8 @@ export function AppShell({
           />
           <aside className="relative flex h-full w-64 max-w-[80vw] flex-col overflow-y-auto scrollbar-thin bg-surface p-4 shadow-pop">
             <div className="flex items-center justify-between">
-              <span className="text-lg font-bold tracking-tight text-fg">
-                Our Story
+              <span className="min-w-0 truncate text-lg font-bold tracking-tight text-fg">
+                {activeStory?.name || 'Our Story'}
               </span>
               <button
                 className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-surface-2"

@@ -4,7 +4,12 @@
  */
 const BASE = process.env.REGRESSION_BASE_URL || 'http://localhost:3000';
 
-let cookie = '';
+// A real cookie jar. The harness previously kept a single string, so the
+// active_story cookie set by /switch replaced the session cookie outright and
+// every later request went out unauthenticated - which made isolation checks
+// pass vacuously against empty 401 bodies.
+let jar = {};
+const cookieHeader = () => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
 const results = [];
 let created = { note: null, travel: null, wish: null, culinary: null, album: null };
 
@@ -16,7 +21,8 @@ function rec(feature, step, ok, detail = '') {
 
 async function req(method, path, body, isForm = false) {
   const opts = { method, headers: {} };
-  if (cookie) opts.headers['Cookie'] = cookie;
+  const hdr = cookieHeader();
+  if (hdr) opts.headers['Cookie'] = hdr;
   if (body && !isForm) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
@@ -24,8 +30,16 @@ async function req(method, path, body, isForm = false) {
     opts.body = body;
   }
   const res = await fetch(BASE + path, opts);
-  const setCookie = res.headers.get('set-cookie');
-  if (setCookie) cookie = setCookie.split(';')[0];
+  // getSetCookie keeps multiple Set-Cookie headers separate; several routes
+  // set more than one.
+  const raw = typeof res.headers.getSetCookie === 'function'
+    ? res.headers.getSetCookie()
+    : (res.headers.get('set-cookie') ? [res.headers.get('set-cookie')] : []);
+  for (const c of raw) {
+    const [pair] = c.split(';');
+    const idx = pair.indexOf('=');
+    if (idx > 0) jar[pair.slice(0, idx).trim()] = pair.slice(idx + 1).trim();
+  }
   let json = null;
   const text = await res.text();
   try { json = JSON.parse(text); } catch { json = { _raw: text.slice(0, 120) }; }
@@ -88,6 +102,24 @@ async function preflight() {
 
   r = await req('GET', '/api/auth/session');
   rec('auth', 'session', r.ok && r.json.user?.username === U, `HTTP ${r.status}`);
+
+  console.log('\n=== STORIES ===');
+  r = await req('GET', '/api/stories');
+  rec('stories', 'new user has no story', r.ok && (r.json.stories || []).length === 0, `HTTP ${r.status}`);
+
+  const noStory = await req('GET', '/api/notes');
+  rec('stories', 'feature routes 403 with NO_STORY before one exists',
+      noStory.status === 403 && noStory.json.code === 'NO_STORY',
+      `HTTP ${noStory.status} ${noStory.json.code || ''}`);
+
+  r = await req('POST', '/api/stories', { name: '' });
+  rec('stories', 'rejects blank name', r.status === 400, `HTTP ${r.status}`);
+
+  r = await req('POST', '/api/stories', { name: 'Regression Story' });
+  const storyId = r.json.story?.id;
+  rec('stories', 'create', r.status === 201 && !!storyId, `HTTP ${r.status}`);
+  r = await req('POST', `/api/stories/${storyId}/switch`);
+  rec('stories', 'switch to own story', r.ok, `HTTP ${r.status}`);
 
   r = await req('POST', '/api/auth/login', { username: U, password: 'WrongPass!' });
   rec('auth', 'rejects wrong password', r.status === 401, `HTTP ${r.status}`);
@@ -223,13 +255,69 @@ async function preflight() {
   r = await req('GET', '/api/quote');
   rec('dashboard', 'quote endpoint', r.ok && !!r.json.quote?.text, `HTTP ${r.status}`);
 
+  console.log('\n=== CROSS-STORY ISOLATION ===');
+  // The bug this whole feature exists to fix: six of seven routes previously
+  // had no ownership filter, so any signed-in user saw everyone's rows.
+  {
+    const jarA = { ...jar };
+
+    // Seed one row per feature into story A.
+    await req('POST', '/api/notes',    { title: 'A-note', content: 'private to A' });
+    await req('POST', '/api/travel',   { destination: 'A-city', status: 'planning' });
+    await req('POST', '/api/wishlist', { title: 'A-wish', priority: 'low', status: 'wished' });
+    await req('POST', '/api/culinary', { placeName: 'A-place', priceRange: '$', status: 'wishlist', isFavorite: false });
+    await req('POST', '/api/albums',   { name: 'A-album' });
+
+    // A second user with their own separate story.
+    const V = 'regr2_' + Date.now().toString(36);
+    jar = {};
+    await req('POST', '/api/auth/signup', { username: V, email: `${V}@example.com`, password: 'TestPass123!', displayName: 'Other User' });
+    const [[vrow]] = await db.query('SELECT id, verification_token FROM users WHERE username = ?', [V]);
+    await req('GET', `/api/auth/verify-email?token=${encodeURIComponent(vrow.verification_token)}`);
+    await req('POST', '/api/auth/login', { username: V, password: 'TestPass123!' });
+    const bStory = await req('POST', '/api/stories', { name: 'Other Story' });
+    await req('POST', `/api/stories/${bStory.json.story.id}/switch`);
+
+    const checks = [
+      ['notes',    '/api/notes',    (j) => j.notes,   'A-note',  'title'],
+      ['travel',   '/api/travel',   (j) => j.plans,   'A-city',  'destination'],
+      ['wishlist', '/api/wishlist', (j) => j.items,   'A-wish',  'title'],
+      ['culinary', '/api/culinary', (j) => j.recipes, 'A-place', 'placeName'],
+      ['albums',   '/api/albums',   (j) => j.albums,  'A-album', 'name'],
+    ];
+    for (const [label, path, pick, needle, field] of checks) {
+      const res = await req('GET', path);
+      const rows = pick(res.json) || [];
+      const leaked = rows.some((x) => x[field] === needle);
+      rec('isolation', `${label}: story B cannot see story A's row`, !leaked,
+          leaked ? 'LEAKED' : `${rows.length} own row(s)`);
+    }
+
+    const photos = await req('GET', '/api/photos');
+    rec('isolation', 'photos: story B sees none of A', (photos.json.photos || []).length === 0);
+
+    // B must not be able to reach A's story by switching to it.
+    const steal = await req('POST', `/api/stories/${storyId}/switch`);
+    rec('isolation', 'cannot switch into a story you are not in', steal.status === 403, `HTTP ${steal.status}`);
+
+    // A forged cookie must not grant access either.
+    jar.active_story = String(storyId);
+    const forged = await req('GET', '/api/notes');
+    const forgedLeak = (forged.json.notes || []).some((n) => n.title === 'A-note');
+    rec('isolation', 'forged active_story cookie is ignored', !forgedLeak,
+        forgedLeak ? 'LEAKED' : 'rejected');
+
+    await db.query('DELETE FROM users WHERE username = ?', [V]);
+    jar = jarA;
+  }
+
   console.log('\n=== AUTH GUARD (unauthenticated) ===');
-  const saved = cookie; cookie = '';
+  const saved = { ...jar }; jar = {};
   for (const p of ['/api/notes', '/api/travel', '/api/wishlist', '/api/culinary', '/api/photos', '/api/albums', '/api/love-letters']) {
     const g = await req('GET', p);
     rec('auth-guard', `${p} rejects anon`, g.status === 401, `HTTP ${g.status}`);
   }
-  cookie = saved;
+  jar = saved;
 
   console.log('\n=== LOGOUT ===');
   r = await req('POST', '/api/auth/logout');

@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import pool from '@/lib/database';
+import { requireStoryMember, StoryAccessError } from '@/lib/story';
 import { ResultSetHeader } from 'mysql2';
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    // Parse session to get user ID (assuming session format is "userId:username")
-    const userId = parseInt(sessionCookie.value.split(':')[0]);
+    const { userId, storyId } = await requireStoryMember();
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -84,9 +76,10 @@ export async function POST(request: NextRequest) {
 
     // Store metadata in database
     const [result] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO photos (user_id, title, description, file_name, file_path, file_size, mime_type, width, height, album_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO photos (story_id, user_id, title, description, file_name, file_path, file_size, mime_type, width, height, album_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        storyId,
         userId,
         title,
         description,
@@ -103,8 +96,8 @@ export async function POST(request: NextRequest) {
     // Update album photo count
     if (finalAlbumId) {
       await pool.execute(
-        'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = ?) WHERE id = ?',
-        [finalAlbumId, finalAlbumId]
+        'UPDATE albums SET photo_count = (SELECT COUNT(*) FROM photos WHERE album_id = ?) WHERE id = ? AND story_id = ?',
+        [finalAlbumId, finalAlbumId, storyId]
       );
     }
 
@@ -128,6 +121,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    if (error instanceof StoryAccessError) return error.response;
     console.error('Upload error:', error);
     return NextResponse.json({ 
       error: 'Failed to upload photo' 

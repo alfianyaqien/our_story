@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit } from '@/lib/rate-limit';
 import pool from '@/lib/database';
 import bcrypt from 'bcryptjs';
 import { sendVerificationEmail } from '@/lib/email';
@@ -7,6 +8,9 @@ import { ResultSetHeader, RowDataPacket } from 'mysql2';
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = rateLimit(request, { name: 'signup', limit: 5, windowSeconds: 3600 });
+    if (limited) return limited;
+
     const { username, email, password, displayName } = await request.json();
 
     // Validation

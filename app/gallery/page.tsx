@@ -485,6 +485,7 @@ export default function GalleryPage() {
             >
               <Image
                 src={photo.filePath}
+                unoptimized
                 alt={photo.title || 'Photo'}
                 fill
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -596,6 +597,7 @@ export default function GalleryPage() {
             <div className="relative flex flex-1 items-center justify-center">
               <Image
                 src={selectedPhoto.filePath}
+                unoptimized
                 alt={selectedPhoto.title || 'Photo'}
                 fill
                 className="object-contain"
@@ -683,6 +685,7 @@ export default function GalleryPage() {
             <div className="relative mb-6 h-56 w-full overflow-hidden rounded-xl border border-default bg-surface-2 sm:h-64">
               <Image
                 src={editingPhoto.filePath}
+                unoptimized
                 alt={editingPhoto.title || 'Photo'}
                 fill
                 className="object-contain"

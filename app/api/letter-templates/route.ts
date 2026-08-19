@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { getSession } from '@/lib/session';
 import pool from '@/lib/database';
 import { RowDataPacket } from 'mysql2';
 
@@ -13,10 +13,7 @@ interface TemplateRow extends RowDataPacket {
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('session');
-    
-    if (!sessionCookie) {
+    if (!(await getSession())) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 

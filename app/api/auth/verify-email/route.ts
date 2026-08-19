@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit } from '@/lib/rate-limit';
 import pool from '@/lib/database';
 import { sendWelcomeEmail } from '@/lib/email';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 export async function GET(request: NextRequest) {
   try {
+    const limited = rateLimit(request, { name: 'verify-email', limit: 20, windowSeconds: 3600 });
+    if (limited) return limited;
+
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
 

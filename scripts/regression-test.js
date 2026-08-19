@@ -382,6 +382,32 @@ async function preflight() {
     const photos = await req('GET', '/api/photos');
     rec('isolation', 'photos: story B sees none of A', (photos.json.photos || []).length === 0);
 
+    // Uploading with another story's albumId must be refused. This used to
+    // succeed: the General-album lookup ignored story_id and a client-supplied
+    // albumId was never checked, so photos were filed into another story's
+    // album.
+    const aAlbums = await (async () => {
+      const saved = { ...jar }; jar = { ...jarA };
+      const res = await req('GET', '/api/albums');
+      jar = saved;
+      return res.json.albums || [];
+    })();
+    if (aAlbums.length) {
+      const png = Buffer.from(
+        '89504e470d0a1a0a0000000d4948445200000001000000010806000000' +
+        '1f15c4890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082',
+        'hex'
+      );
+      const fd = new FormData();
+      fd.append('file', new Blob([png], { type: 'image/png' }), 'x.png');
+      fd.append('albumId', String(aAlbums[0].id));
+      const res = await fetch(BASE + '/api/photos/upload', {
+        method: 'POST', headers: { Cookie: cookieHeader() }, body: fd,
+      });
+      rec('isolation', "cannot upload into another story's album",
+          res.status === 400, `HTTP ${res.status}`);
+    }
+
     // B must not be able to reach A's story by switching to it.
     const steal = await req('POST', `/api/stories/${storyId}/switch`);
     rec('isolation', 'cannot switch into a story you are not in', steal.status === 403, `HTTP ${steal.status}`);
@@ -395,6 +421,80 @@ async function preflight() {
 
     await db.query('DELETE FROM users WHERE username = ?', [V]);
     jar = jarA;
+  }
+
+  console.log('\n=== SESSION INTEGRITY ===');
+  {
+    const jarReal = { ...jar };
+
+    // The old format: an unsigned JSON cookie naming any user id. This was a
+    // working authentication bypass before sessions were signed.
+    jar = { session: JSON.stringify({ userId: 1, username: 'x', displayName: 'x' }) };
+    let f = await req('GET', '/api/auth/session');
+    rec('session', 'forged unsigned JSON cookie rejected', f.status === 401, `HTTP ${f.status}`);
+    f = await req('GET', '/api/notes');
+    rec('session', 'forged cookie cannot read data', f.status === 401, `HTTP ${f.status}`);
+
+    // Valid payload shape, but signed with nothing.
+    const payload = Buffer.from(JSON.stringify({ userId: 1, username: 'x', displayName: 'x', exp: 9999999999 })).toString('base64url');
+    jar = { session: `${payload}.notavalidsignature` };
+    f = await req('GET', '/api/auth/session');
+    rec('session', 'bad signature rejected', f.status === 401, `HTTP ${f.status}`);
+
+    // Real payload, signature stripped.
+    jar = { session: payload };
+    f = await req('GET', '/api/auth/session');
+    rec('session', 'unsigned payload rejected', f.status === 401, `HTTP ${f.status}`);
+
+    jar = jarReal;
+    f = await req('GET', '/api/auth/session');
+    rec('session', 'genuine session still works', f.ok, `HTTP ${f.status}`);
+  }
+
+  console.log('\n=== UPLOAD HARDENING ===');
+  {
+    // Media route must refuse an unknown file and reject traversal outright.
+    let m = await req('GET', '/api/media/photos/does-not-exist.jpg');
+    rec('uploads', 'unknown media file is 404', m.status === 404, `HTTP ${m.status}`);
+    m = await req('GET', '/api/media/photos/..%2F..%2F..%2Fetc%2Fpasswd');
+    rec('uploads', 'path traversal refused', m.status === 404, `HTTP ${m.status}`);
+    m = await req('GET', '/api/media/evil/x.jpg');
+    rec('uploads', 'unknown bucket refused', m.status === 404, `HTTP ${m.status}`);
+
+    // A file whose bytes are not an image must be refused even with a
+    // well-formed image Content-Type.
+    const fd = new FormData();
+    fd.append('file', new Blob(['<?php system($_GET["c"]); ?>'], { type: 'image/png' }), 'shell.php');
+    const bad = await fetch(BASE + '/api/photos/upload', {
+      method: 'POST', headers: { Cookie: cookieHeader() }, body: fd,
+    });
+    const badBody = await bad.json().catch(() => ({}));
+    rec('uploads', 'non-image bytes refused despite image mime type',
+        bad.status === 400, `HTTP ${bad.status} ${badBody.error || ''}`);
+  }
+
+  console.log('\n=== SECURITY HEADERS ===');
+  {
+    const res = await fetch(BASE + '/');
+    const want = ['content-security-policy', 'x-frame-options', 'x-content-type-options', 'referrer-policy'];
+    for (const h of want) {
+      rec('headers', `${h} present`, !!res.headers.get(h), res.headers.get(h)?.slice(0, 40) || 'missing');
+    }
+    rec('headers', 'x-powered-by removed', !res.headers.get('x-powered-by'),
+        res.headers.get('x-powered-by') || 'absent');
+  }
+
+  console.log('\n=== RATE LIMITING ===');
+  {
+    const jarReal = { ...jar };
+    jar = {};
+    let limited = false;
+    for (let i = 0; i < 14; i++) {
+      const r2 = await req('POST', '/api/auth/login', { username: 'nobody-here', password: 'wrong' });
+      if (r2.status === 429) { limited = true; break; }
+    }
+    rec('rate-limit', 'repeated failed logins get 429', limited, limited ? 'throttled' : 'never throttled');
+    jar = jarReal;
   }
 
   console.log('\n=== AUTH GUARD (unauthenticated) ===');

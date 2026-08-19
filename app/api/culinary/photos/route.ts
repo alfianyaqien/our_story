@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/database';
 import { requireStoryMember, StoryAccessError } from '@/lib/story';
+import {
+  bucketDir,
+  mediaUrl,
+  resolveStoredFile,
+  validateUpload,
+} from '@/lib/uploads';
 import { writeFile } from 'fs/promises';
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import * as fs from 'fs';
@@ -113,8 +119,11 @@ export async function POST(request: NextRequest) {
 
     // Check existing photo count
     const [countRows] = await pool.execute<RowDataPacket[]>(
-      'SELECT COUNT(*) as count FROM culinary_photos WHERE culinary_id = ?',
-      [culinaryId]
+      `SELECT COUNT(*) AS count
+         FROM culinary_photos cp
+         JOIN recipes r ON r.id = cp.culinary_id
+        WHERE cp.culinary_id = ? AND r.story_id = ?`,
+      [culinaryId, storyId]
     );
 
     if (countRows[0].count >= 3) {
@@ -123,24 +132,16 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 8);
-    const extension = file.name.split('.').pop();
-    const fileName = `culinary-${culinaryId}-${timestamp}-${randomString}.${extension}`;
-
-    // Save file to disk
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'culinary');
-    
-    // Ensure directory exists
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    // Validated and named by lib/uploads.ts: the extension comes from sniffed
+    // magic bytes, not from `file.name`.
+    const checked = await validateUpload(file, `culinary-${culinaryId}-`);
+    if (!checked.ok) {
+      return NextResponse.json({ error: checked.error }, { status: 400 });
     }
+    const { buffer, fileName, mimeType, size } = checked.value;
 
-    const filePath = path.join(uploadDir, fileName);
-    await writeFile(filePath, buffer);
+    const uploadDir = await bucketDir('culinary');
+    await writeFile(path.join(uploadDir, fileName), buffer);
 
     // Delete existing photo with same order if exists
     const [existingPhotos] = await pool.execute<CulinaryPhotoRow[]>(
@@ -152,8 +153,8 @@ export async function POST(request: NextRequest) {
 
     if (existingPhotos.length > 0) {
       // Delete old file
-      const oldFilePath = path.join(process.cwd(), 'public', existingPhotos[0].file_path);
-      if (fs.existsSync(oldFilePath)) {
+      const oldFilePath = resolveStoredFile('culinary', existingPhotos[0].file_name);
+      if (oldFilePath && fs.existsSync(oldFilePath)) {
         fs.unlinkSync(oldFilePath);
       }
       // Delete from culinary_photos database
@@ -178,9 +179,9 @@ export async function POST(request: NextRequest) {
       [
         culinaryId,
         fileName,
-        `/uploads/culinary/${fileName}`,
-        file.size,
-        file.type,
+        mediaUrl('culinary', fileName),
+        size,
+        mimeType,
         photoOrder
       ]
     );
@@ -195,9 +196,9 @@ export async function POST(request: NextRequest) {
         `${placeName} - Photo ${photoOrder}`,
         `Photo from culinary visit to ${placeName}`,
         fileName,
-        `/uploads/culinary/${fileName}`,
-        file.size,
-        file.type,
+        mediaUrl('culinary', fileName),
+        size,
+        mimeType,
         null,
         null,
         'culinary'
@@ -210,7 +211,7 @@ export async function POST(request: NextRequest) {
         id: result.insertId,
         culinaryId: parseInt(culinaryId),
         fileName,
-        filePath: `/uploads/culinary/${fileName}`,
+        filePath: mediaUrl('culinary', fileName),
         fileSize: file.size,
         mimeType: file.type,
         photoOrder,
@@ -255,8 +256,8 @@ export async function DELETE(request: NextRequest) {
     const photo = photos[0];
 
     // Delete file from disk
-    const filePath = path.join(process.cwd(), 'public', photo.file_path);
-    if (fs.existsSync(filePath)) {
+    const filePath = resolveStoredFile('culinary', photo.file_name);
+    if (filePath && fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
 

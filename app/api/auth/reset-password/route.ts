@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit } from '@/lib/rate-limit';
 import pool from '@/lib/database';
 import bcrypt from 'bcryptjs';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = rateLimit(request, { name: 'reset-password', limit: 10, windowSeconds: 3600 });
+    if (limited) return limited;
+
     const { token, password } = await request.json();
 
     if (!token || !password) {

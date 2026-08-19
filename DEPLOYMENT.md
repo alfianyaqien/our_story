@@ -138,14 +138,7 @@ sits behind Cloudflare, leave it grey (proxy off) so Caddy can complete the ACME
 challenge. Verify with `dig +short story.alfianyaqien.my.id` before continuing —
 Caddy will fail issuance and back off if the record is missing.
 
-Generate the soft-launch password hash **yourself** and paste only the hash:
-
-```bash
-caddy hash-password
-```
-
-Then append the block from `deploy/caddy/story.Caddyfile` to `/etc/caddy/Caddyfile`,
-replace `REPLACE_WITH_BCRYPT_HASH`, and:
+Append the block from `deploy/caddy/story.Caddyfile` to `/etc/caddy/Caddyfile`, then:
 
 ```bash
 caddy validate --config /etc/caddy/Caddyfile   # NOT under sudo — see below
@@ -207,7 +200,7 @@ correct once against a development database and never appropriate for production
 ### Smoke test
 
 ```bash
-curl -sI https://story.alfianyaqien.my.id/ | head -1                    # 200 (or 401 while basic auth is on)
+curl -sI https://story.alfianyaqien.my.id/ | head -1                    # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://story.alfianyaqien.my.id/api/auth/session   # 401 signed out
 sudo journalctl -u story -n 30 --no-pager
 ```

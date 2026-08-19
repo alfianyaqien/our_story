@@ -15,16 +15,18 @@ story.alfianyaqien.my.id {
 
 	encode zstd gzip
 
-	# Temporary, for the soft launch: reachable for testing, not open to the
-	# internet or to crawlers while the app is shaken down. Remove this block
-	# (and reload) when you are happy.
+	# The soft-launch gate was removed on 2026-08-20, once the deploy, email and
+	# backup paths were all verified. The app is now reachable and relies on its
+	# own authentication: every data endpoint returns 401 when signed out.
 	#
-	# Generate the hash on the server with:
-	#   caddy hash-password
-	# and paste only the hash. Never put the plaintext password in this file.
-	basic_auth {
-		alfian REPLACE_WITH_BCRYPT_HASH
-	}
+	# To put the lid back on temporarily - before a risky change, or to keep
+	# crawlers off during a rework - uncomment this and reload. Generate the hash
+	# on the server with `caddy hash-password` and paste only the hash; never put
+	# a plaintext password in this file.
+	#
+	# basic_auth {
+	# 	alfian REPLACE_WITH_BCRYPT_HASH
+	# }
 
 	log {
 		output file /var/log/caddy/story.log {

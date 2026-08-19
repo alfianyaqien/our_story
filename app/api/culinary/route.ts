@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import pool from '@/lib/database';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { toSqlDate, fromSqlDate } from '@/lib/date';
 
 interface CulinaryPlanRow extends RowDataPacket {
   id: number;
@@ -42,7 +43,7 @@ export async function GET() {
       status: plan.status,
       rating: plan.rating,
       isFavorite: plan.is_favorite,
-      visitDate: plan.visit_date,
+      visitDate: fromSqlDate(plan.visit_date),
       createdAt: plan.created_at
     }));
 
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
         status || 'wishlist',
         rating || null,
         isFavorite || false,
-        visitDate || null
+        toSqlDate(visitDate)
       ]
     );
 
@@ -148,7 +149,7 @@ export async function PUT(request: NextRequest) {
         status || 'wishlist',
         rating || null,
         isFavorite || false,
-        visitDate || null,
+        toSqlDate(visitDate),
         id
       ]
     );

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import pool from '@/lib/database';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { toSqlDate, fromSqlDate } from '@/lib/date';
 
 interface TravelPlanRow extends RowDataPacket {
   id: number;
@@ -30,8 +31,8 @@ export async function GET() {
     const formattedPlans = rows.map(plan => ({
       id: plan.id,
       destination: plan.destination,
-      startDate: plan.start_date,
-      endDate: plan.end_date,
+      startDate: fromSqlDate(plan.start_date),
+      endDate: fromSqlDate(plan.end_date),
       budget: plan.budget,
       notes: plan.notes,
       status: plan.status,
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     const [result] = await pool.execute<ResultSetHeader>(
       `INSERT INTO travel_plans (destination, start_date, end_date, budget, notes, status)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [destination, startDate || null, endDate || null, budget || null, notes || '', status || 'wishlist']
+      [destination, toSqlDate(startDate), toSqlDate(endDate), budget || null, notes || '', status || 'wishlist']
     );
 
     return NextResponse.json({ 
@@ -95,7 +96,7 @@ export async function PUT(request: NextRequest) {
       `UPDATE travel_plans
        SET destination = ?, start_date = ?, end_date = ?, budget = ?, notes = ?, status = ?
        WHERE id = ?`,
-      [destination, startDate || null, endDate || null, budget || null, notes || '', status || 'wishlist', id]
+      [destination, toSqlDate(startDate), toSqlDate(endDate), budget || null, notes || '', status || 'wishlist', id]
     );
 
     return NextResponse.json({ success: true });

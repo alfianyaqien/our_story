@@ -230,6 +230,31 @@ schema, roll that back deliberately.
 
 ---
 
+## Email
+
+Resend over SMTP, reusing the API key and the verified `send.alfianyaqien.my.id`
+sender that the `wedding` and `moment` apps already use.
+
+**Use port 2587, not 587.** IDCloudHost blocks outbound SMTP on the standard
+ports. Measured from this host: 25, 465 and 587 are blocked; 2587 and 443 are
+open. 2587 is Resend's documented alternate submission port. Getting this wrong
+produces a bare connection timeout inside nodemailer — the app looks healthy and
+no mail is ever delivered, which is a slow thing to diagnose.
+
+Verify without sending anything to a real person:
+
+```bash
+# Auth check only — EHLO, AUTH LOGIN, QUIT. Expect "235 Authentication successful".
+openssl s_client -quiet -starttls smtp -connect smtp.resend.com:2587
+```
+
+For an end-to-end check, sign up with `delivered@resend.dev` — Resend's test
+address, which accepts mail and reaches nobody. Expect `✅ Email sent` in
+`journalctl -u story`.
+
+If Resend ever drops 2587, the fallback is their HTTP API on 443 (what the other
+two apps use); that requires changing `lib/email.ts`, which speaks SMTP only.
+
 ## Backups
 
 `story-backup.timer` runs at 03:30 (the other two apps use 03:00; three concurrent

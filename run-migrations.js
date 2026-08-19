@@ -83,32 +83,49 @@ async function runMigrations() {
     if (applied.size === 0) {
       const [tables] = await connection.query('SHOW TABLES');
       const tableNames = new Set(tables.map(t => Object.values(t)[0]));
-      const [userCols] = await connection.query('SHOW COLUMNS FROM users');
-      const userColNames = new Set(userCols.map(c => c.Field));
-      const [photoCols] = tableNames.has('photos')
-        ? await connection.query('SHOW COLUMNS FROM photos')
-        : [[]];
-      const photoColNames = new Set(photoCols.map(c => c.Field));
 
-      const alreadyDone = {
-        '001_update_recipes_to_culinary_plans.sql': tableNames.has('recipes'),
-        '004_create_photos_table.sql': tableNames.has('photos'),
-        '005_create_culinary_photos_table.sql': tableNames.has('culinary_photos'),
-        '006_enhance_users_table_for_auth.sql': userColNames.has('email'),
-        '006_enhance_users_table_for_auth_v2.sql': userColNames.has('email'),
-        '007_create_albums_table.sql': tableNames.has('albums') && photoColNames.has('album_id'),
-      };
+      // A database with no `users` table has no pre-ledger history to adopt:
+      // either it is empty, in which case the baseline below creates
+      // everything, or it is not this application's database at all.
+      //
+      // This guard is why the block is entered conditionally rather than
+      // probing. `SHOW COLUMNS FROM users` throws on an empty schema, and the
+      // throw was caught by the generic handler and reported as
+      // "Connection failed: Table 'our_story.users' doesn't exist" — which
+      // reads as a credentials problem, not an empty database. It aborted the
+      // first production deploy, correctly but very confusingly. The `photos`
+      // lookup immediately below was already guarded this way.
+      if (!tableNames.has('users')) {
+        console.log('Fresh database — nothing to adopt; applying baseline.\n');
+      } else {
+        const [userCols] = await connection.query('SHOW COLUMNS FROM users');
+        const userColNames = new Set(userCols.map(c => c.Field));
+        const [photoCols] = tableNames.has('photos')
+          ? await connection.query('SHOW COLUMNS FROM photos')
+          : [[]];
+        const photoColNames = new Set(photoCols.map(c => c.Field));
 
-      for (const [name, done] of Object.entries(alreadyDone)) {
-        if (done) {
-          await connection.query(
-            'INSERT IGNORE INTO schema_migrations (name) VALUES (?)', [name]
-          );
-          applied.add(name);
+        const alreadyDone = {
+          '001_update_recipes_to_culinary_plans.sql': tableNames.has('recipes'),
+          '004_create_photos_table.sql': tableNames.has('photos'),
+          '005_create_culinary_photos_table.sql': tableNames.has('culinary_photos'),
+          '006_enhance_users_table_for_auth.sql': userColNames.has('email'),
+          '006_enhance_users_table_for_auth_v2.sql': userColNames.has('email'),
+          '007_create_albums_table.sql': tableNames.has('albums') && photoColNames.has('album_id'),
+        };
+
+        for (const [name, done] of Object.entries(alreadyDone)) {
+          if (done) {
+            await connection.query(
+              'INSERT IGNORE INTO schema_migrations (name) VALUES (?)', [name]
+            );
+            applied.add(name);
+          }
         }
-      }
-      if (applied.size) {
-        console.log(`Adopted ${applied.size} pre-ledger migration(s) as already applied.\n`);
+
+        if (applied.size) {
+          console.log(`Adopted ${applied.size} pre-ledger migration(s) as already applied.\n`);
+        }
       }
     }
 

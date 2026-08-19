@@ -11,7 +11,11 @@ Group=story
 ExecStart=/srv/story/bin/backup.sh
 
 # Writes the local backup set here.
-ReadWritePaths=/var/backups/story /srv/story/shared
+# /srv/story/.config is writable because rclone REWRITES rclone.conf whenever it
+# refreshes the OAuth access token. Under ProtectSystem=strict without this, the
+# refresh fails and the offsite push starts erroring roughly an hour after the
+# token was last minted - long after any setup test would have passed.
+ReadWritePaths=/var/backups/story /srv/story/shared /srv/story/.config
 ProtectSystem=strict
 PrivateTmp=true
 NoNewPrivileges=true

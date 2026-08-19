@@ -34,7 +34,28 @@ async function req(method, path, body, isForm = false) {
 
 const U = 'regr_' + Date.now().toString(36);
 
+/**
+ * The harness drives the real HTTP API, so it needs the app running. Fail with
+ * an instruction rather than an undici stack trace when nothing is listening.
+ */
+async function preflight() {
+  try {
+    await fetch(BASE + '/api/auth/session');
+  } catch (e) {
+    if (e?.cause?.code === 'ECONNREFUSED' || e?.code === 'ECONNREFUSED') {
+      console.error(`\nCannot reach the app at ${BASE}\n`);
+      console.error('This harness tests the running app, so start it first:\n');
+      console.error('  in one terminal:   npm run dev');
+      console.error('  in another:        npm run test:regression\n');
+      console.error('Point it elsewhere with REGRESSION_BASE_URL=https://... npm run test:regression\n');
+      process.exit(2);
+    }
+    throw e;
+  }
+}
+
 (async () => {
+  await preflight();
   console.log('\n=== AUTH ===');
   let r = await req('POST', '/api/auth/signup', {
     username: U, email: `${U}@example.com`, password: 'TestPass123!', displayName: 'Regression User',
@@ -44,10 +65,18 @@ const U = 'regr_' + Date.now().toString(36);
   // verify via token straight from the DB (email delivery is out of scope here)
   const mysql = require('mysql2/promise');
   require('dotenv').config({ quiet: true });
-  const db = await mysql.createConnection({
-    host: process.env.DB_HOST, port: +process.env.DB_PORT, user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD, database: process.env.DB_NAME,
-  });
+  let db;
+  try {
+    db = await mysql.createConnection({
+      host: process.env.DB_HOST, port: +process.env.DB_PORT, user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD, database: process.env.DB_NAME,
+    });
+  } catch (e) {
+    console.error(`\nCannot reach MySQL (${e.code}).`);
+    console.error('The harness reads the verification token directly, so it needs DB access.');
+    console.error('Check DB_HOST / DB_PORT / DB_USER / DB_PASSWORD / DB_NAME in .env\n');
+    process.exit(2);
+  }
   const [[row]] = await db.query('SELECT id, verification_token FROM users WHERE username = ?', [U]);
   const userId = row?.id;
 

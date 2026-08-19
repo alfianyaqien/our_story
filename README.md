@@ -253,3 +253,25 @@ Created for couples who want to cherish their memories and plan their future tog
 **Version**: 2.0.0  
 **Last Updated**: October 15, 2025  
 **Branch**: feature/enhanced-auth-system
+
+## Regression tests
+
+End-to-end checks against the real HTTP API: auth, full CRUD on every
+feature, the love-letter encryption round-trip, date round-trips, and that
+each data endpoint rejects anonymous requests.
+
+The harness drives the running app, so start it first:
+
+```bash
+npm run dev              # terminal 1
+npm run test:regression  # terminal 2
+```
+
+Point it at another environment with `REGRESSION_BASE_URL`:
+
+```bash
+REGRESSION_BASE_URL=https://staging.example.com npm run test:regression
+```
+
+It also reads the signup verification token straight from MySQL, so it needs
+the same `DB_*` credentials as the app.

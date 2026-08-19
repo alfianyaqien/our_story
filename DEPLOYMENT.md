@@ -262,6 +262,38 @@ dumps on 2 vCPUs is needless contention). Each run writes a gzipped `mysqldump`,
 tar of `shared/uploads`, and a copy of the environment file to `/var/backups/story`,
 keeping 14 days, all at mode `600`.
 
+### Offsite
+
+`story-offsite` is a Google Drive remote at `~story/.config/rclone/rclone.conf`
+(mode 600), pushing each night's set to `story-backups/`. Only the current run's
+three files are pushed (`--include` filtered by timestamp), so Drive accumulates
+sets while local prunes at 14 days.
+
+**`/srv/story/.config` must be in the unit's `ReadWritePaths`.** rclone rewrites
+`rclone.conf` whenever it refreshes the OAuth access token. Under
+`ProtectSystem=strict` without that path, the refresh fails and the offsite push
+starts erroring about an hour after the token was last minted — long after any
+setup test would have passed, which makes it a nasty one to attribute.
+
+Two things to be aware of about what ends up in Drive:
+
+* **`env-*` files are plaintext secrets.** They must be there — the database dump
+  cannot be decrypted without `ENCRYPTION_KEY` — but it means live credentials
+  sit unencrypted in Google Drive. Rotating the database password later does not
+  retroactively scrub older copies.
+* **The token's real scope is broader than the config claims.** `rclone.conf`
+  says `scope = drive.file`, but `rclone lsd story-offsite:` lists the entire
+  personal Drive, so the stored token was granted full Drive access at some
+  earlier point. The remote is shared with the `wedding` app, so this token is a
+  single point of compromise for the whole Drive, not just for backup folders.
+  To isolate it, re-authorise with a dedicated token:
+
+  ```bash
+  # On a machine with a browser:
+  rclone authorize "drive" --drive-scope drive.file
+  # Then paste the result into `rclone config` on the server, as the story user.
+  ```
+
 The dump deliberately runs **without** `--routines --events`. Both need
 privileges `story_app` does not have, and `EVENT` implies `CREATE EVENT` — giving
 that to the credential the app process loads would let an app compromise schedule

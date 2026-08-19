@@ -1,0 +1,37 @@
+# /etc/mysql/mariadb.conf.d/60-story.cnf
+#
+#   sudo cp deploy/mariadb/60-story.cnf /etc/mysql/mariadb.conf.d/
+#   sudo systemctl restart mariadb
+#
+# This box has 1967MB of RAM and already runs two Node apps (wedding on 3000,
+# moment on 3001). MariaDB's defaults would take a few hundred MB of that, and
+# the failure mode is not "the database is slow" — it is the kernel OOM-killing
+# whichever process it likes least, which may be someone's live wedding site.
+#
+# These settings trade throughput for a predictable footprint. The dataset here
+# is a handful of tables for two people; it does not need a large buffer pool.
+[mysqld]
+# The single biggest consumer. 128M comfortably holds this entire dataset.
+innodb_buffer_pool_size = 128M
+
+# Off by default in MariaDB, but state it explicitly: it costs ~40MB and nothing
+# here reads it.
+performance_schema = OFF
+
+# Per-connection buffers, and a low connection ceiling. The app pool is capped at
+# 10 in lib/db-pool.ts; 25 leaves room for a shell and the backup job.
+max_connections = 25
+thread_cache_size = 8
+sort_buffer_size = 512K
+join_buffer_size = 512K
+tmp_table_size = 16M
+max_heap_table_size = 16M
+
+# Local only. Nothing outside this host has any business reaching the database,
+# and the app connects over 127.0.0.1.
+bind-address = 127.0.0.1
+skip-name-resolve
+
+# utf8mb4 throughout, so emoji in a letter or a place name round-trip.
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci

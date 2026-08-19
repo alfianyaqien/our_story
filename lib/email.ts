@@ -41,7 +41,17 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     const transporter = createTransporter();
 
     if (!transporter) {
-      // In development mode without email config, just log
+      // No SMTP configured. In development this prints the message so the
+      // verification/reset link is usable; in production it must not, because
+      // the body carries single-use tokens and letter text straight into the
+      // server log. Reporting failure there is also more honest than
+      // returning true for an email that was never sent.
+      if (process.env.NODE_ENV === 'production') {
+        console.error(
+          'Email not sent: SMTP is not configured (set EMAIL_USER and EMAIL_PASS).'
+        );
+        return false;
+      }
       console.log('📧 Email (development mode):');
       console.log('To:', options.to);
       console.log('Subject:', options.subject);

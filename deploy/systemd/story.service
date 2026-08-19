@@ -1,0 +1,76 @@
+# /etc/systemd/system/story.service
+# The app itself.
+#
+#   sudo cp deploy/systemd/* /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now story
+#
+# Bound to 127.0.0.1: Caddy is the only way in, so the app is unreachable from
+# the internet except through TLS. Port 3002 because wedding holds 3000 and
+# moment holds 3001.
+[Unit]
+Description=Our Story — shared space for two people
+Documentation=https://github.com/alfianyaqien/our_story/blob/main/DEPLOYMENT.md
+After=network-online.target mariadb.service
+Wants=network-online.target
+# Not Requires=: if MariaDB is briefly down the app should stay up and return
+# errors rather than be stopped by systemd, which is easier to diagnose.
+After=mariadb.service
+
+[Service]
+Type=simple
+User=story
+Group=story
+
+# A symlink, resolved by systemd at start. That is what makes the deploy
+# script's swap-then-restart work, and a rollback a symlink repoint.
+WorkingDirectory=/srv/story/current
+EnvironmentFile=/srv/story/shared/env
+
+# Same fix as wedding.service, and for the same measured reason: the first SYN
+# out of this host is routinely dropped, the real RTT is ~14ms, and the
+# handshake only completes on the kernel retransmission about a second later.
+# Node tries each resolved address for 250ms, exhausts them in ~750ms and gives
+# up before the retransmit lands.
+#
+# This app makes outbound TCP to Resend's SMTP endpoint. Without this flag,
+# nodemailer fails with a bare timeout and no verification or reset email is
+# ever delivered, while curl from the same shell works because it simply waits.
+Environment=NODE_OPTIONS=--network-family-autoselection-attempt-timeout=5000
+
+# `output: 'standalone'` in next.config.js emits this server, with only the
+# traced dependencies. One process, no next CLI and no npm wrapper: the wrapper
+# costs ~40MB for nothing and swallows signals, making stop and restart less
+# precise. PORT and HOSTNAME come from the environment file.
+ExecStart=/usr/bin/node server.js
+
+Restart=always
+RestartSec=2
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+# --- hardening ---------------------------------------------------------------
+# ProtectSystem=strict makes the filesystem read-only apart from what is listed
+# below. Safe here because lib/uploads.ts is the only filesystem write in the
+# app and it honours UPLOAD_DIR, which points into shared/.
+#
+# If Next ever needs to write .next/cache at runtime this is what would surface
+# it, as a read-only-filesystem error in the journal rather than silent
+# breakage. The smoke test in DEPLOYMENT.md exercises a page render and an
+# upload for exactly that reason.
+ProtectSystem=strict
+ReadWritePaths=/srv/story/shared
+PrivateTmp=true
+ProtectHome=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+# Outbound HTTPS/SMTP to Resend, plus a unix socket to MariaDB. Nothing needs
+# raw sockets.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

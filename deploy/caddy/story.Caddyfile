@@ -1,0 +1,54 @@
+# Append this block to /etc/caddy/Caddyfile, then:
+#   sudo caddy validate --config /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Requires an A record for story.alfianyaqien.my.id -> 103.55.38.224 first;
+# Caddy cannot complete the ACME challenge without it. If the domain is behind
+# Cloudflare, leave the record grey (proxy off) for issuance.
+story.alfianyaqien.my.id {
+	reverse_proxy 127.0.0.1:3002
+
+	# 10MB limit in lib/uploads.ts, plus multipart overhead.
+	request_body {
+		max_size 12MB
+	}
+
+	encode zstd gzip
+
+	# Temporary, for the soft launch: reachable for testing, not open to the
+	# internet or to crawlers while the app is shaken down. Remove this block
+	# (and reload) when you are happy.
+	#
+	# Generate the hash on the server with:
+	#   caddy hash-password
+	# and paste only the hash. Never put the plaintext password in this file.
+	basic_auth {
+		alfian REPLACE_WITH_BCRYPT_HASH
+	}
+
+	log {
+		output file /var/log/caddy/story.log {
+			roll_size 10MB
+			roll_keep 5
+		}
+	}
+}
+
+# ---------------------------------------------------------------------------
+# Three things NOT to add here, matching the notes in the wedding block.
+#
+# 1. `header_up Host …`
+#    Next compares Host against X-Forwarded-Host to validate Server Actions.
+#    Rewriting it makes them disagree and every mutation fails while reads look
+#    fine. Caddy already passes the original Host, so do nothing.
+#
+# 2. Security headers.
+#    CSP, HSTS, X-Frame-Options and the rest are set in next.config.js so they
+#    travel with the app and apply in development too. A second CSP here would
+#    be enforced as the intersection of both and is a miserable thing to debug.
+#
+# 3. A `file_server` or `handle_path` alias for the uploads directory.
+#    Uploads deliberately live OUTSIDE the web root and are streamed by
+#    /api/media, which checks the session and story membership before returning
+#    a byte. Serving that directory statically would hand every photo to anyone
+#    holding the URL and undo the access control entirely.

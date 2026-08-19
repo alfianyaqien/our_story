@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rateLimit } from '@/lib/rate-limit';
 import { authenticateUser } from '@/lib/auth';
-import { cookies } from 'next/headers';
+import { setSessionCookie } from '@/lib/session';
 import pool from '@/lib/database';
 import { ResultSetHeader } from 'mysql2';
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = rateLimit(request, { name: 'login', limit: 10, windowSeconds: 300 });
+    if (limited) return limited;
+
     const { username, password } = await request.json();
 
     if (!username || !password) {
@@ -32,18 +36,12 @@ export async function POST(request: NextRequest) {
       [user.id]
     );
 
-    // Set session cookie
-    const cookieStore = await cookies();
-    cookieStore.set('session', JSON.stringify({
+    // Signed session cookie - see lib/session.ts
+    await setSessionCookie({
       userId: user.id,
       username: user.username,
       displayName: user.displayName,
-      email: user.email
-    }), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7 // 1 week
+      email: user.email,
     });
 
     return NextResponse.json({

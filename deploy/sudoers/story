@@ -1,0 +1,13 @@
+# /etc/sudoers.d/story
+#
+#   sudo install -m 0440 -o root -g root deploy/sudoers/story /etc/sudoers.d/story
+#   sudo visudo -c
+#
+# The deploy script restarts the service after swapping the release symlink.
+# Scoped to exactly those three verbs on exactly this unit: the story user has no
+# other privilege, so a compromise of the app cannot touch wedding, moment, Caddy
+# or the database configuration.
+#
+# Absolute paths are required — a bare `systemctl` would match any binary of that
+# name earlier in PATH.
+story ALL=(root) NOPASSWD: /usr/bin/systemctl restart story, /usr/bin/systemctl stop story, /usr/bin/systemctl start story

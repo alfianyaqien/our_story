@@ -1,0 +1,121 @@
+# Manual deploy to story.alfianyaqien.my.id.
+#
+# workflow_dispatch rather than on-push: the target box also serves two client
+# apps, and an unattended restart triggered by a merge is not worth the
+# convenience. Flip to `on: push: branches: [main]` once a few deploys have gone
+# cleanly.
+#
+# The build happens here, never on the server: that box has 1967MB of RAM shared
+# with wedding and moment, and `next build` peaks around 1-1.5GB. Building there
+# risks the kernel OOM-killing a live client site.
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or tag to deploy
+        required: false
+        default: main
+
+concurrency:
+  # Two deploys interleaving would swap the release symlink underneath each
+  # other. Queue instead, and never cancel one mid-flight.
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the server exactly. Deploying an artifact built on a
+          # different major than it runs on is a needless variable.
+          node-version: 24.x
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # `next build` evaluates instrumentation.ts, and lib/env.ts refuses to
+          # start without real secrets. These are build-time placeholders only —
+          # the running app reads the real values from /srv/story/shared/env.
+          NODE_ENV: production
+          SESSION_SECRET: build-time-placeholder-not-used-at-runtime-000000
+          ENCRYPTION_KEY: build-time-placeholder-not-used-at-runtime-000000
+          DB_HOST: localhost
+          DB_USER: build
+          DB_NAME: build
+          NEXT_PUBLIC_APP_URL: https://story.alfianyaqien.my.id
+
+      - name: Assemble release
+        # standalone omits public/ and .next/static by design — Next expects the
+        # deployer to copy them. Forgetting either is the classic standalone
+        # mistake: the app boots and every asset 404s.
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          cp -r .next/standalone/. release/
+          mkdir -p release/.next
+          cp -r .next/static release/.next/static
+          cp -r public release/public
+          # Needed on the server, and not part of the Next build graph.
+          cp run-migrations.js release/
+          mkdir -p release/database
+          cp -r database/migrations release/database/migrations
+
+          # run-migrations.js is plain CommonJS, so it needs mysql2 at runtime.
+          # Next's dependency tracing bundles mysql2 into the compiled route
+          # chunks but does not leave it in node_modules, so the script would die
+          # with MODULE_NOT_FOUND on the server.
+          #
+          # Resolved in an isolated directory rather than `npm install` inside
+          # release/: the standalone package.json still lists every original
+          # dependency, so installing there re-resolves the whole tree instead of
+          # the one package needed. deploy.sh points NODE_PATH here. (~5MB, 12
+          # packages.)
+          mkdir -p release/.migrate
+          printf '{"name":"story-migrate-deps","private":true}\n' > release/.migrate/package.json
+          ( cd release/.migrate && npm install --omit=dev --no-audit --no-fund mysql2 )
+
+          tar -czf release.tar.gz -C release .
+          echo "release size: $(du -h release.tar.gz | cut -f1)"
+
+      - name: Add server to known_hosts
+        # Pinned from a secret rather than StrictHostKeyChecking=no, so a
+        # man-in-the-middle cannot quietly receive the release.
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Install deploy key
+        run: |
+          install -m 600 /dev/null ~/.ssh/id_deploy
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_deploy
+
+      - name: Upload release
+        run: |
+          STAMP=$(date -u +%Y%m%dT%H%M%S)
+          scp -i ~/.ssh/id_deploy -o IdentitiesOnly=yes \
+            release.tar.gz \
+            story@${{ secrets.DEPLOY_HOST }}:/srv/story/incoming/release-$STAMP.tar.gz
+          echo "TARBALL=/srv/story/incoming/release-$STAMP.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Run deploy script
+        # deploy.sh migrates, swaps the symlink, restarts, health-checks, and
+        # rolls back on its own if the app does not come up.
+        run: |
+          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes \
+            story@${{ secrets.DEPLOY_HOST }} \
+            "/srv/story/bin/deploy.sh $TARBALL"

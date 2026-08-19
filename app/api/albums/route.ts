@@ -173,8 +173,8 @@ export async function PUT(request: NextRequest) {
         p.file_path as cover_photo_path
       FROM albums a
       LEFT JOIN photos p ON a.cover_photo_id = p.id
-      WHERE a.id = ?`,
-      [id]
+      WHERE a.id = ? AND a.story_id = ?`,
+      [id, storyId]
     );
 
     return NextResponse.json({

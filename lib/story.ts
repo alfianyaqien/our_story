@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { getSession } from '@/lib/session';
 import pool from '@/lib/database';
 import { RowDataPacket } from 'mysql2';
 
@@ -43,24 +44,12 @@ export class StoryAccessError extends Error {
   }
 }
 
-interface SessionShape {
-  userId?: number;
-}
-
-async function readSession(): Promise<SessionShape | null> {
-  const cookieStore = await cookies();
-  const raw = cookieStore.get('session');
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw.value) as SessionShape;
-  } catch {
-    return null;
-  }
-}
+// Session parsing and signature verification live in lib/session.ts; this
+// module only asks "who is this?" and never trusts the raw cookie itself.
 
 /** The signed-in user id, or throw a 401 response. */
 export async function requireUser(): Promise<number> {
-  const session = await readSession();
+  const session = await getSession();
   if (!session?.userId) {
     throw new StoryAccessError(
       NextResponse.json({ error: 'Not authenticated' }, { status: 401 }),

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
+import { writeFile } from 'fs/promises';
 import path from 'path';
 import pool from '@/lib/database';
 import { requireStoryMember, StoryAccessError } from '@/lib/story';
+import { bucketDir, mediaUrl, validateUpload } from '@/lib/uploads';
 import { ResultSetHeader } from 'mysql2';
 
 export async function POST(request: NextRequest) {
@@ -20,55 +20,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ 
-        error: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.' 
-      }, { status: 400 });
+    // Type, size, magic bytes and the stored name are all decided by
+    // lib/uploads.ts - never by the client's filename or Content-Type.
+    const checked = await validateUpload(file);
+    if (!checked.ok) {
+      return NextResponse.json({ error: checked.error }, { status: 400 });
     }
+    const { buffer, fileName, mimeType, size } = checked.value;
 
-    // Validate file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      return NextResponse.json({ 
-        error: 'File too large. Maximum size is 10MB.' 
-      }, { status: 400 });
-    }
-
-    // Generate unique filename
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 8);
-    const fileExt = path.extname(file.name);
-    const fileName = `${timestamp}-${randomString}${fileExt}`;
-
-    // Create upload directory if it doesn't exist
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'photos');
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-
-    // Save file to disk
-    const filePath = path.join(uploadDir, fileName);
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
+    // Outside public/, so nothing is statically served; reads go through
+    // /api/media, which checks story membership first.
+    const uploadDir = await bucketDir('photos');
+    await writeFile(path.join(uploadDir, fileName), buffer);
 
     // Get image dimensions (simple approach - can be enhanced)
     // For now, we'll store null and can add sharp library later for proper image processing
     const width = null;
     const height = null;
 
-    // Get or use default album (General)
-    let finalAlbumId = albumId ? parseInt(albumId) : null;
-    
+    // Album resolution, story-scoped throughout.
+    //
+    // Both halves of this were wrong before: the General lookup had no
+    // story filter and took whichever General album came first in the whole
+    // table, and a client-supplied albumId was trusted outright. Together
+    // that filed photos into another story's album.
+    let finalAlbumId: number | null = null;
+
+    if (albumId) {
+      const requested = parseInt(albumId);
+      if (Number.isInteger(requested)) {
+        const [owned] = await pool.execute<any[]>(
+          'SELECT id FROM albums WHERE id = ? AND story_id = ? LIMIT 1',
+          [requested, storyId]
+        );
+        if (owned.length === 0) {
+          return NextResponse.json(
+            { error: 'That album does not exist' },
+            { status: 400 }
+          );
+        }
+        finalAlbumId = requested;
+      }
+    }
+
     if (!finalAlbumId) {
-      // Get the General album ID
       const [generalAlbum] = await pool.execute<any[]>(
-        'SELECT id FROM albums WHERE name = ? LIMIT 1',
-        ['General']
+        'SELECT id FROM albums WHERE name = ? AND story_id = ? LIMIT 1',
+        ['General', storyId]
       );
-      
       if (generalAlbum.length > 0) {
         finalAlbumId = generalAlbum[0].id;
       }
@@ -84,9 +83,9 @@ export async function POST(request: NextRequest) {
         title,
         description,
         fileName,
-        `/uploads/photos/${fileName}`,
-        file.size,
-        file.type,
+        mediaUrl('photos', fileName),
+        size,
+        mimeType,
         width,
         height,
         finalAlbumId
@@ -107,7 +106,7 @@ export async function POST(request: NextRequest) {
         id: result.insertId,
         userId,
         fileName,
-        filePath: `/uploads/photos/${fileName}`,
+        filePath: mediaUrl('photos', fileName),
         title,
         description,
         albumId: finalAlbumId,

@@ -432,6 +432,7 @@ export default function RecipesPage() {
                           >
                             <Image
                               src={existingPhoto.filePath}
+                              unoptimized
                               alt={`Photo ${photoOrder}`}
                               fill
                               className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -633,6 +634,7 @@ export default function RecipesPage() {
           >
             <Image
               src={photos[selectedPhotoIndex].filePath}
+              unoptimized
               alt={`Photo ${photos[selectedPhotoIndex].photoOrder}`}
               width={1200}
               height={800}

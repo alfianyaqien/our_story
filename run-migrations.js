@@ -4,17 +4,37 @@
 const mysql = require('mysql2/promise');
 const fs = require('fs').promises;
 const path = require('path');
-require('dotenv').config();
+// Optional. On the server, deploy.sh sources /srv/story/shared/env before
+// invoking this, so the variables are already present and dotenv is not shipped
+// in the release. Locally it is what loads .env.
+try {
+  require('dotenv').config();
+} catch {
+  // not installed in the release artifact; environment is supplied by systemd
+}
 
-const migrations = [
+// The only file the runner applies. 001-009 are kept in the directory for
+// provenance but deliberately not listed: 009 contained `DELETE FROM` across
+// every feature table, which was right once against a development database and
+// must never reach production. Squashing takes it off the path entirely instead
+// of trusting the ledger to skip it.
+const BASELINE = '000_baseline.sql';
+
+// Superseded by the baseline. Recorded as applied so an existing database that
+// migrated the long way, and a fresh one that starts from the baseline, both end
+// up with the same ledger and a later run is a no-op either way.
+const SUPERSEDED = [
   '001_update_recipes_to_culinary_plans.sql',
   '004_create_photos_table.sql',
   '005_create_culinary_photos_table.sql',
+  '006_enhance_users_table_for_auth.sql',
   '006_enhance_users_table_for_auth_v2.sql',
   '007_create_albums_table.sql',
   '008_create_missing_feature_tables.sql',
-  '009_create_stories.sql'
+  '009_create_stories.sql',
 ];
+
+const migrations = [BASELINE];
 
 async function runMigrations() {
   console.log('==================================================');
@@ -92,6 +112,24 @@ async function runMigrations() {
       }
     }
 
+    // Reconcile the two histories. A database that already ran 009 has the
+    // baseline's schema by definition, so record the baseline rather than
+    // re-running it; a database that ran the baseline has 001-009's effect, so
+    // record those.
+    if (applied.has('009_create_stories.sql') && !applied.has(BASELINE)) {
+      await connection.query('INSERT IGNORE INTO schema_migrations (name) VALUES (?)', [BASELINE]);
+      applied.add(BASELINE);
+      console.log(`Recorded ${BASELINE} as applied (this database migrated via 001-009).\n`);
+    }
+    if (applied.has(BASELINE)) {
+      for (const name of SUPERSEDED) {
+        if (!applied.has(name)) {
+          await connection.query('INSERT IGNORE INTO schema_migrations (name) VALUES (?)', [name]);
+          applied.add(name);
+        }
+      }
+    }
+
     const pending = migrations.filter(m => !applied.has(m));
 
     if (pending.length === 0) {
@@ -121,6 +159,14 @@ async function runMigrations() {
         await connection.query(
           'INSERT IGNORE INTO schema_migrations (name) VALUES (?)', [migration]
         );
+        if (migration === BASELINE) {
+          for (const name of SUPERSEDED) {
+            await connection.query('INSERT IGNORE INTO schema_migrations (name) VALUES (?)', [name]);
+          }
+          console.log(`  ✓ Success (and recorded ${SUPERSEDED.length} superseded migrations)\n`);
+          successCount++;
+          continue;
+        }
 
         console.log('  ✓ Success\n');
         successCount++;

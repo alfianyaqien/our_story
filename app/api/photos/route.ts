@@ -3,6 +3,7 @@ import { unlink } from 'fs/promises';
 import path from 'path';
 import pool from '@/lib/database';
 import { requireStoryMember, StoryAccessError } from '@/lib/story';
+import { resolveStoredFile } from '@/lib/uploads';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 interface PhotoRow extends RowDataPacket {
@@ -108,8 +109,8 @@ export async function DELETE(request: NextRequest) {
 
     // Delete file from disk
     try {
-      const filePath = path.join(process.cwd(), 'public', 'uploads', 'photos', photo.file_name);
-      await unlink(filePath);
+      const filePath = resolveStoredFile('photos', photo.file_name);
+      if (filePath) await unlink(filePath);
     } catch (fileError) {
       console.error('Error deleting file:', fileError);
       // Continue even if file deletion fails

@@ -1,0 +1,19 @@
+# /etc/systemd/system/story-backup.service
+# Nightly database + uploads backup. Triggered by story-backup.timer.
+[Unit]
+Description=Back up the Our Story database and uploads
+Documentation=https://github.com/alfianyaqien/our_story/blob/main/DEPLOYMENT.md
+
+[Service]
+Type=oneshot
+User=story
+Group=story
+ExecStart=/srv/story/bin/backup.sh
+
+# Writes the local backup set here.
+ReadWritePaths=/var/backups/story /srv/story/shared
+ProtectSystem=strict
+PrivateTmp=true
+NoNewPrivileges=true
+# NOT ProtectHome: rclone reads its token from ~story/.config/rclone/rclone.conf,
+# and hiding it here is what makes the offsite push silently do nothing.

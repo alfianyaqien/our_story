@@ -255,6 +255,92 @@ async function preflight() {
   r = await req('GET', '/api/quote');
   rec('dashboard', 'quote endpoint', r.ok && !!r.json.quote?.text, `HTTP ${r.status}`);
 
+  console.log('\n=== INVITES ===');
+  {
+    // owner mints a code
+    let inv = await req('POST', `/api/stories/${storyId}/invites`);
+    const code = inv.json.invite?.code;
+    rec('invites', 'owner can create an invite', inv.status === 201 && !!code, `HTTP ${inv.status}`);
+    rec('invites', 'code is long and random', (code || '').length >= 30, `${(code||'').length} chars`);
+
+    let prev = await req('GET', `/api/invites/${encodeURIComponent(code)}`);
+    rec('invites', 'preview shows story and inviter',
+        prev.ok && prev.json.invite?.storyName === 'Regression Story' && !!prev.json.invite?.invitedBy,
+        `HTTP ${prev.status}`);
+
+    const bogus = await req('GET', '/api/invites/definitely-not-a-real-code');
+    rec('invites', 'unknown code is 404', bogus.status === 404, `HTTP ${bogus.status}`);
+
+    // accepting your own invite is refused (already a member -> no-op join)
+    const selfAccept = await req('POST', `/api/invites/${encodeURIComponent(code)}/accept`);
+    rec('invites', 'own invite does not duplicate membership',
+        selfAccept.ok && selfAccept.json.alreadyMember === true, `HTTP ${selfAccept.status}`);
+
+    // a second user redeems it
+    const jarOwner = { ...jar };
+    const P = 'regrp_' + Date.now().toString(36);
+    jar = {};
+    await req('POST', '/api/auth/signup', { username: P, email: `${P}@example.com`, password: 'TestPass123!', displayName: 'Partner' });
+    const [[prow]] = await db.query('SELECT id, verification_token FROM users WHERE username = ?', [P]);
+    await req('GET', `/api/auth/verify-email?token=${encodeURIComponent(prow.verification_token)}`);
+    await req('POST', '/api/auth/login', { username: P, password: 'TestPass123!' });
+
+    const accept = await req('POST', `/api/invites/${encodeURIComponent(code)}/accept`);
+    rec('invites', 'partner accepts', accept.ok && accept.json.storyId === storyId, `HTTP ${accept.status}`);
+
+    const shared = await req('GET', '/api/stories');
+    rec('invites', 'story appears for the partner',
+        (shared.json.stories || []).some((x) => x.id === storyId), '');
+
+    const reuse = await req('POST', `/api/invites/${encodeURIComponent(code)}/accept`);
+    rec('invites', 'code is single-use', reuse.status === 409 || reuse.json.alreadyMember, `HTTP ${reuse.status}`);
+
+    // partner is not the owner
+    const notOwner = await req('POST', `/api/stories/${storyId}/invites`);
+    rec('invites', 'non-owner cannot invite', notOwner.status === 403, `HTTP ${notOwner.status}`);
+    const cantRename = await req('PATCH', `/api/stories/${storyId}`, { name: 'Hijacked' });
+    rec('invites', 'non-owner cannot rename', cantRename.status === 403, `HTTP ${cantRename.status}`);
+    const cantDelete = await req('DELETE', `/api/stories/${storyId}`);
+    rec('invites', 'non-owner cannot delete', cantDelete.status === 403, `HTTP ${cantDelete.status}`);
+
+    // both members now see the same rows
+    await req('POST', '/api/notes', { title: 'Shared by partner', content: 'hello' });
+    jar = jarOwner;
+    const ownerSees = await req('GET', '/api/notes');
+    rec('invites', 'owner sees the partner\'s note',
+        (ownerSees.json.notes || []).some((n) => n.title === 'Shared by partner'), '');
+
+    // story is full
+    const full = await req('POST', `/api/stories/${storyId}/invites`);
+    rec('invites', 'cannot invite once the story is full', full.status === 409, `HTTP ${full.status}`);
+
+    // owner cannot leave their own story
+    const ownerLeave = await req('DELETE', `/api/stories/${storyId}/members/${userId}`);
+    rec('invites', 'owner cannot leave own story', ownerLeave.status === 400, `HTTP ${ownerLeave.status}`);
+
+    // owner removes the partner
+    const removed = await req('DELETE', `/api/stories/${storyId}/members/${prow.id}`);
+    rec('invites', 'owner removes partner', removed.ok, `HTTP ${removed.status}`);
+    const after = await req('GET', `/api/stories/${storyId}`);
+    rec('invites', 'member list back to one', (after.json.story?.members || []).length === 1, '');
+
+    // revoked invites cannot be previewed
+    const inv2 = await req('POST', `/api/stories/${storyId}/invites`);
+    const code2 = inv2.json.invite.code;
+    await req('DELETE', `/api/invites/${encodeURIComponent(code2)}`);
+    const revoked = await req('GET', `/api/invites/${encodeURIComponent(code2)}`);
+    rec('invites', 'revoked invite is 410', revoked.status === 410, `HTTP ${revoked.status}`);
+
+    // expired invites cannot be previewed
+    const inv3 = await req('POST', `/api/stories/${storyId}/invites`);
+    const code3 = inv3.json.invite.code;
+    await db.query('UPDATE story_invites SET expires_at = DATE_SUB(NOW(), INTERVAL 1 DAY) WHERE code = ?', [code3]);
+    const expired = await req('GET', `/api/invites/${encodeURIComponent(code3)}`);
+    rec('invites', 'expired invite is 410', expired.status === 410, `HTTP ${expired.status}`);
+
+    await db.query('DELETE FROM users WHERE username = ?', [P]);
+  }
+
   console.log('\n=== CROSS-STORY ISOLATION ===');
   // The bug this whole feature exists to fix: six of seven routes previously
   // had no ownership filter, so any signed-in user saw everyone's rows.

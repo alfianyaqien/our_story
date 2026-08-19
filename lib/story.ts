@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import pool from '@/lib/database';
@@ -155,4 +156,72 @@ export async function withStory<T>(
     if (error instanceof StoryAccessError) return error.response;
     throw error;
   }
+}
+
+/** How long an invite stays valid. */
+export const INVITE_TTL_DAYS = 7;
+
+/**
+ * Invite code. This is a capability - anyone holding it can join the story -
+ * so it must be unguessable rather than sequential. base64url of 24 random
+ * bytes gives 192 bits.
+ */
+export function generateInviteCode(): string {
+  return randomBytes(24).toString('base64url');
+}
+
+/** Is this user the owner of this story? */
+export async function isOwner(
+  userId: number,
+  storyId: number
+): Promise<boolean> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    "SELECT 1 FROM story_members WHERE story_id = ? AND user_id = ? AND role = 'owner' LIMIT 1",
+    [storyId, userId]
+  );
+  return rows.length > 0;
+}
+
+/** Throw a 403 unless the user owns the story. */
+export async function requireOwner(
+  userId: number,
+  storyId: number
+): Promise<void> {
+  if (!(await isOwner(userId, storyId))) {
+    throw new StoryAccessError(
+      NextResponse.json(
+        { error: 'Only the story owner can do that' },
+        { status: 403 }
+      ),
+      'not owner'
+    );
+  }
+}
+
+/** Current member count for a story. */
+export async function memberCount(storyId: number): Promise<number> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT COUNT(*) AS n FROM story_members WHERE story_id = ?',
+    [storyId]
+  );
+  return Number(rows[0]?.n ?? 0);
+}
+
+/** Members of a story, owner first. */
+export async function membersOf(storyId: number) {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    `SELECT u.id, u.username, u.display_name, sm.role, sm.joined_at
+       FROM story_members sm
+       JOIN users u ON u.id = sm.user_id
+      WHERE sm.story_id = ?
+      ORDER BY sm.role = 'owner' DESC, sm.joined_at ASC`,
+    [storyId]
+  );
+  return rows.map((r) => ({
+    id: r.id as number,
+    username: r.username as string,
+    displayName: r.display_name as string,
+    role: r.role as 'owner' | 'member',
+    joinedAt: r.joined_at as string,
+  }));
 }

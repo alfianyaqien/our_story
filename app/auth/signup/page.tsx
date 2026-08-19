@@ -10,6 +10,22 @@ import { Input, Field } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Feedback';
 import { cn } from '@/lib/utils';
 
+/**
+ * Where to go after authenticating. Set by the invite flow (?next=/join/CODE)
+ * so someone following a link lands back on it. Read from location rather than
+ * useSearchParams to avoid forcing a Suspense boundary on this route.
+ *
+ * Only same-origin relative paths are honoured, so the parameter cannot be
+ * used to bounce someone to another site.
+ */
+function nextDestination(fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  const raw = new URLSearchParams(window.location.search).get('next');
+  if (!raw) return fallback;
+  if (!raw.startsWith('/') || raw.startsWith('//')) return fallback;
+  return raw;
+}
+
 export default function SignupPage() {
   const [formData, setFormData] = useState({
     username: '',
@@ -94,8 +110,15 @@ export default function SignupPage() {
         });
 
         // Redirect to login after 3 seconds
+        // Carry the invite through the verification detour, so the link is
+        // still waiting after they confirm their email and sign in.
+        const next = nextDestination('');
         setTimeout(() => {
-          router.push('/?verified=check-email');
+          router.push(
+            next
+              ? `/?verified=check-email&next=${encodeURIComponent(next)}`
+              : '/?verified=check-email'
+          );
         }, 3000);
       } else {
         setError(data.error || 'Signup failed');

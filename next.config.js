@@ -61,6 +61,12 @@ if (!isDev) {
 const nextConfig = {
   reactStrictMode: true,
 
+  // Ships a self-contained server plus only the traced dependencies, so a
+  // release is ~50-100MB and needs no `npm install` on the server. The target
+  // box has 2GB of RAM shared with two other apps; installing or building
+  // there would risk evicting them.
+  output: 'standalone',
+
   // Runs instrumentation.ts at server start, which validates that the
   // session/encryption secrets are actually present.
   experimental: { instrumentationHook: true },

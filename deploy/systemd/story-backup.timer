@@ -1,0 +1,17 @@
+# /etc/systemd/system/story-backup.timer
+#
+#   sudo systemctl enable --now story-backup.timer
+#
+# 03:30 rather than 03:00: wedding and moment already back up at 03:00, and on a
+# 2GB box with 2 vCPUs three simultaneous dumps plus three tar runs is enough
+# contention to matter.
+[Unit]
+Description=Nightly Our Story backup
+
+[Timer]
+OnCalendar=03:30
+# Runs on next boot if the machine was off at 03:30.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

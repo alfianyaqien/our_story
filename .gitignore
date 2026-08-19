@@ -40,3 +40,7 @@ next-env.d.ts
 # uploads (dev default; production uses UPLOAD_DIR)
 /storage
 /public/uploads
+
+# build artifacts from the deploy assemble step
+/release
+/release.tar.gz

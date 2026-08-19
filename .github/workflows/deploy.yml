@@ -1,16 +1,30 @@
-# Manual deploy to story.alfianyaqien.my.id.
+# Automatic deploy to story.alfianyaqien.my.id.
 #
-# workflow_dispatch rather than on-push: the target box also serves two client
-# apps, and an unattended restart triggered by a merge is not worth the
-# convenience. Flip to `on: push: branches: [main]` once a few deploys have gone
-# cleanly.
+# Triggers on every push to main. The safety argument for that is not "merges are
+# always good" — it is that this pipeline is unattended end to end:
 #
-# The build happens here, never on the server: that box has 1967MB of RAM shared
-# with wedding and moment, and `next build` peaks around 1-1.5GB. Building there
-# risks the kernel OOM-killing a live client site.
+#   * The build runs here, never on the server. That box has 1967MB of RAM shared
+#     with wedding and moment, and `next build` peaks around 1-1.5GB. Building
+#     there risks the kernel OOM-killing a live client site.
+#   * `npm run build` IS the type check (same command CI runs), so a commit that
+#     does not compile fails here and never reaches the server.
+#   * deploy.sh runs migrations BEFORE swapping the release symlink, so a failed
+#     migration leaves the previous release serving.
+#   * deploy.sh polls the app after restart and repoints the symlink at the
+#     previous release if it does not come up within 30s.
+#
+# paths-ignore keeps documentation commits from restarting a box that also serves
+# two client apps. Use the manual `Run workflow` button to deploy one anyway.
 name: Deploy
 
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - 'graphify-out/**'
   workflow_dispatch:
     inputs:
       ref:
@@ -33,7 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.sha }}
 
       - uses: actions/setup-node@v4
         with:

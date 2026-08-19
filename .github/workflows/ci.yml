@@ -43,6 +43,39 @@ jobs:
             exit 1
           fi
   
+  schema-guard:
+    # The nightly backup dumps with neither --routines nor --events, because both
+    # need privileges the app credential deliberately lacks (EVENT implies CREATE
+    # EVENT, which would let an app compromise schedule arbitrary SQL).
+    #
+    # That is safe only while the schema stays plain tables. It cannot be checked
+    # at backup time: information_schema filters by privilege, so story_app counts
+    # 0 routines and 0 triggers even when they exist. So it is checked here, over
+    # the migrations, which are the only way this schema ever changes.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Schema objects the backup cannot capture
+        run: |
+          set -uo pipefail
+          # -i for case, -E for alternation. Matches the DDL, not the words in
+          # comments, by requiring CREATE first.
+          if grep -rniE 'CREATE[[:space:]]+(OR[[:space:]]+REPLACE[[:space:]]+)?(DEFINER[[:space:]]*=[^[:space:]]+[[:space:]]+)?(TRIGGER|PROCEDURE|FUNCTION|EVENT)\b' \
+               database/migrations/ ; then
+            echo
+            echo "::error::A migration creates a trigger, routine or event."
+            echo "The nightly backup does NOT dump these, so it would silently"
+            echo "produce an incomplete database every night."
+            echo
+            echo "Fix one of:"
+            echo "  * remove the object, or"
+            echo "  * add a dedicated backup credential with SHOW VIEW/TRIGGER/EVENT"
+            echo "    and restore --routines --events in deploy/bin/backup.sh"
+            exit 1
+          fi
+          echo "OK: migrations define tables only — the backup captures everything."
+
   code-quality:
     runs-on: ubuntu-latest
     

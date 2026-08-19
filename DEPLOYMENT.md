@@ -28,8 +28,14 @@ decrypting. It is in the nightly backup for exactly this reason.
 
 ### 1. User and directories
 
+`/bin/bash`, not `/usr/sbin/nologin`. CI connects as `story` over SSH to run
+`deploy.sh`, and sshd cannot exec a command for an account whose shell is
+`nologin` — it answers `This account is currently not available.` and the deploy
+fails at the last step. The key is restricted in `authorized_keys` instead (§6),
+which is where that restriction belongs.
+
 ```bash
-sudo adduser --system --group --home /srv/story --shell /usr/sbin/nologin story
+sudo adduser --system --group --home /srv/story --shell /bin/bash story
 sudo mkdir -p /srv/story/{releases,shared/uploads,incoming,bin} /var/backups/story
 sudo chown -R story:story /srv/story /var/backups/story
 sudo chmod 700 /srv/story/shared
@@ -104,7 +110,12 @@ sudo systemctl enable story story-backup.timer
 ```bash
 sudo -u story mkdir -p /srv/story/.ssh && sudo -u story chmod 700 /srv/story/.ssh
 ssh-keygen -t ed25519 -f /tmp/story_deploy -N '' -C 'github-actions-story'
-sudo -u story tee /srv/story/.ssh/authorized_keys < /tmp/story_deploy.pub
+# `restrict` disables port forwarding, agent forwarding, X11 and pty allocation.
+# scp and remote command execution still work, which is all CI needs — so this
+# key cannot be used to tunnel to MariaDB on 127.0.0.1:3306. (Verified: no bytes
+# traverse a `-L 19999:127.0.0.1:3306` forward.)
+printf 'restrict %s\n' "$(cat /tmp/story_deploy.pub)" \
+  | sudo -u story tee /srv/story/.ssh/authorized_keys
 sudo -u story chmod 600 /srv/story/.ssh/authorized_keys
 ssh-keyscan -H 103.55.38.224
 ```
@@ -137,9 +148,23 @@ Then append the block from `deploy/caddy/story.Caddyfile` to `/etc/caddy/Caddyfi
 replace `REPLACE_WITH_BCRYPT_HASH`, and:
 
 ```bash
-sudo caddy validate --config /etc/caddy/Caddyfile
+caddy validate --config /etc/caddy/Caddyfile   # NOT under sudo — see below
 sudo systemctl reload caddy
 ```
+
+**Do not run `caddy validate` under `sudo`.** Validating loads the config, which
+opens the log writer and *creates* `/var/log/caddy/story.log` — owned by `root`
+if you ran it as root. Caddy itself runs as `caddy`, so the subsequent reload
+fails with `open /var/log/caddy/story.log: permission denied` and keeps serving
+the old config. If it already happened:
+
+```bash
+sudo chown caddy:caddy /var/log/caddy/story.log
+sudo systemctl reload caddy
+```
+
+Caddy rejecting a bad config and continuing on the old one is the good failure
+mode here — the two client sites never went down while this was sorted out.
 
 Do **not** add a `file_server` alias for the uploads directory. Uploads live
 outside the web root on purpose and are streamed by `/api/media` only after a
@@ -150,9 +175,22 @@ photo to anyone holding a URL.
 
 ## Deploying
 
-Actions → **Deploy** → *Run workflow*. Manual on purpose: this box serves two
-client apps, and an unattended restart on every merge is not worth the
-convenience. Switch to `on: push` later by editing `.github/workflows/deploy.yml`.
+**Automatic on every push to `main`.** No manual step, and migrations run as part
+of it. `paths-ignore` skips documentation-only commits so they do not restart a
+box that also serves two client apps; the *Run workflow* button is still there to
+force one.
+
+The pipeline is safe to leave unattended because each stage fails closed:
+
+| Stage | Failure behaviour |
+| --- | --- |
+| `npm run build` in CI | Same command CI runs as its type check. A commit that does not compile never reaches the server. |
+| Migrations | Run **before** the symlink swap, so a failed migration leaves the previous release serving. |
+| Health poll | 30s. If the app does not answer, `deploy.sh` repoints the symlink at the previous release and restarts. |
+| Concurrency | `cancel-in-progress: false`, so two deploys queue rather than swapping the symlink underneath each other. |
+
+The build never happens on the server — that box has 1967 MB shared with two
+client apps and `next build` peaks at 1–1.5 GB.
 
 `deploy.sh` unpacks to a timestamped release, asserts `server.js`, `.next/static`,
 `public` and the bundled `mysql2` all arrived, runs migrations, swaps the symlink,
@@ -197,7 +235,18 @@ schema, roll that back deliberately.
 `story-backup.timer` runs at 03:30 (the other two apps use 03:00; three concurrent
 dumps on 2 vCPUs is needless contention). Each run writes a gzipped `mysqldump`, a
 tar of `shared/uploads`, and a copy of the environment file to `/var/backups/story`,
-keeping 14 days.
+keeping 14 days, all at mode `600`.
+
+The dump deliberately runs **without** `--routines --events`. Both need
+privileges `story_app` does not have, and `EVENT` implies `CREATE EVENT` — giving
+that to the credential the app process loads would let an app compromise schedule
+arbitrary SQL. The schema is plain tables, so nothing is lost.
+
+That assumption is guarded in CI (`schema-guard` in `ci.yml`), not at backup time.
+It cannot be checked at backup time: `information_schema` filters rows by
+privilege, so `story_app` counts **0** routines and **0** triggers even when they
+exist — measured directly, root saw 1 and `story_app` saw 0. A runtime check
+there would be blind and would read as reassurance.
 
 The environment copy is what makes the set restorable rather than merely present:
 the dump cannot be decrypted without `ENCRYPTION_KEY`.

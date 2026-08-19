@@ -110,9 +110,23 @@ async function preflight() {
     rec('notes', 'update persisted', upd?.title === 'Regression note v2', upd?.title);
   }
 
-  console.log('\n=== LOVE LETTERS (encryption round-trip) ===');
+  console.log('\n=== LOVE LETTERS (recipients + encryption round-trip) ===');
+  // The compose form used to hardcode recipient ids 1 and 2, so this exercises
+  // the id the dropdown actually supplies rather than one the test invents.
+  r = await req('GET', '/api/users');
+  const recips = r.json.users || [];
+  rec('love-letters', 'recipients endpoint', r.ok, `HTTP ${r.status}, ${recips.length} recipient(s)`);
+  rec('love-letters', 'recipients exclude self', !recips.some(u => u.id === userId));
+  rec('love-letters', 'recipients expose no credentials',
+      recips.every(u => !('password' in u) && !('email' in u)),
+      Object.keys(recips[0] || {}).join(','));
+
+  const badSend = await req('POST', '/api/love-letters', { toUserId: 999999, subject: 'nope', content: 'x' });
+  rec('love-letters', 'unknown recipient rejected with 400', badSend.status === 400, `HTTP ${badSend.status}`);
+
   const secret = 'secret body ' + Math.random().toString(36).slice(2);
-  r = await req('POST', '/api/love-letters', { toUserId: userId, subject: 'Regression letter', content: secret });
+  const toId = recips.length ? recips[0].id : userId;
+  r = await req('POST', '/api/love-letters', { toUserId: toId, subject: 'Regression letter', content: secret });
   rec('love-letters', 'create', r.ok, `HTTP ${r.status}`);
   r = await req('GET', '/api/love-letters');
   const letter = (r.json.letters || []).find(l => l.subject === 'Regression letter');

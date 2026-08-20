@@ -28,11 +28,11 @@ import { cn } from '@/lib/utils';
 const AUTHOR = 'Muhammad Alfian Nurul Yaqien';
 
 const SOCIALS = [
-  { label: 'Instagram', href: 'https://instagram.com/alfianyaqien', Icon: Instagram },
-  { label: 'LinkedIn', href: 'https://linkedin.com/in/alfianyaqien', Icon: Linkedin },
+  { label: 'Instagram', href: 'https://www.instagram.com/alfiannurulyaqien', Icon: Instagram },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/in/alfianyaqien', Icon: Linkedin },
   { label: 'GitHub', href: 'https://github.com/alfianyaqien', Icon: Github },
-  { label: 'YouTube', href: 'https://youtube.com/@alfianyaqien', Icon: Youtube },
-  { label: 'TikTok', href: 'https://tiktok.com/@alfianyaqien', Icon: TikTokIcon },
+  { label: 'YouTube', href: 'https://www.youtube.com/@muhammadalfiannurulyaqien3980', Icon: Youtube },
+  { label: 'TikTok', href: 'https://www.tiktok.com/@alfianyaqien', Icon: TikTokIcon },
 ] as const;
 
 /** lucide-react has no TikTok glyph, so this follows its drawing conventions. */

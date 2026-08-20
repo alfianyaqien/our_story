@@ -76,7 +76,7 @@ export function AuthShell({
         </div>
 
         <p className="relative text-xs text-white/60">
-          © {new Date().getFullYear()} Our Story. Written together.
+          © {new Date().getFullYear()} Our Story By Alfian.
         </p>
       </div>
 

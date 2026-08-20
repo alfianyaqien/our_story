@@ -26,6 +26,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/ThemeProvider';
 import Logo from '@/components/Logo';
+import Credits from '@/components/Credits';
 import { Avatar } from '@/components/ui/Avatar';
 import { Dropdown, MenuItem, MenuDivider } from '@/components/ui/Dropdown';
 
@@ -375,6 +376,10 @@ export function AppShell({
         <main id="main" className="flex-1 px-4 pb-12 lg:px-8">
           {children}
         </main>
+
+        {/* Outside <main> so the credits are not part of the page's main
+            landmark - <footer> here is its own contentinfo landmark. */}
+        <Credits />
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Alert, Spinner } from '@/components/ui/Feedback';
 import { LogoWithText } from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
+import Credits from '@/components/Credits';
 
 interface InvitePreview {
   storyName: string;
@@ -167,6 +168,10 @@ export default function JoinPage() {
           )}
         </div>
       </main>
+
+      {/* This page renders neither AppShell nor AuthShell, so it needs the
+          credits directly - adding them to the shells alone would skip it. */}
+      <Credits />
     </div>
   );
 }

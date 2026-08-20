@@ -9,6 +9,7 @@ import { Input, Field } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Feedback';
 import { LogoWithText } from '@/components/Logo';
 import ThemeToggle from '@/components/ThemeToggle';
+import Credits from '@/components/Credits';
 
 /**
  * First run: a signed-in user who belongs to no story lands here rather than
@@ -111,6 +112,10 @@ export default function NewStoryPage() {
           </Card>
         </div>
       </main>
+
+      {/* This page renders neither AppShell nor AuthShell, so it needs the
+          credits directly - adding them to the shells alone would skip it. */}
+      <Credits />
     </div>
   );
 }

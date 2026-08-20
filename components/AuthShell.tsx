@@ -3,6 +3,7 @@ import { Camera, StickyNote, Mail, ChefHat } from 'lucide-react';
 import { LogoWithText } from './Logo';
 import ThemeToggle from './ThemeToggle';
 import { BackLink } from './ui/BackLink';
+import Credits from './Credits';
 
 const HIGHLIGHTS = [
   {
@@ -75,31 +76,40 @@ export function AuthShell({
         </div>
 
         <p className="relative text-xs text-white/60">
-          © {new Date().getFullYear()} Our Story. Written together.
+          © {new Date().getFullYear()} Our Story By Alfian.
         </p>
       </div>
 
-      {/* Form column */}
-      <main
-        id="main"
-        className="relative flex w-full flex-col items-center justify-center p-6 lg:w-1/2"
-      >
+      {/* Form column. The column is a plain div so <main> can be flex-1 and the
+          credits can sit at the bottom; the outer container is a flex ROW, so a
+          footer placed after it would land beside the panel rather than under
+          the form. id="main" stays on <main> itself - the skip link targets it. */}
+      <div className="relative flex w-full flex-col lg:w-1/2">
         <div className="absolute right-4 top-4 z-10">
           <ThemeToggle />
         </div>
-        <div className="w-full max-w-sm animate-slide-up">
-          {/* Mobile brand lockup - the panel is hidden below lg */}
-          <div className="mb-8 flex justify-center lg:hidden">
-            <LogoWithText size="default" showTagline />
-          </div>
-          {back && (
-            <div className="mb-4">
-              <BackLink href={back.href}>{back.label}</BackLink>
+        <main
+          id="main"
+          className="flex flex-1 flex-col items-center justify-center p-6"
+        >
+          <div className="w-full max-w-sm animate-slide-up">
+            {/* Mobile brand lockup - the panel is hidden below lg */}
+            <div className="mb-8 flex justify-center lg:hidden">
+              <LogoWithText size="default" showTagline />
             </div>
-          )}
-          {children}
-        </div>
-      </main>
+            {back && (
+              <div className="mb-4">
+                <BackLink href={back.href}>{back.label}</BackLink>
+              </div>
+            )}
+            {children}
+          </div>
+        </main>
+
+        {/* Borderless here: the form column already reads as one surface, and a
+            rule across it would cut the page in half visually. */}
+        <Credits className="border-t-0 pt-0" />
+      </div>
     </div>
   );
 }
